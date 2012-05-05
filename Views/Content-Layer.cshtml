@@ -1,0 +1,18 @@
+﻿@using System.Reflection
+@using ClaySharp
+layer:@Display(Model.Metadata)<br/>
+@Model.ContentItem.Id<br/>
+
+@{
+    var propertyInfo = Model.GetType().GetProperties();
+}
+
+@foreach(var property in propertyInfo) {
+    @property<br />
+}
+
+<ul>
+@foreach(var bindingSource in Model.Metadata.BindingSources) {
+    <li>@bindingSource</li>
+}
+</ul>

@@ -1,0 +1,8 @@
+﻿@using Orchard.Utility.Extensions;
+@{
+    var contentTypeClassName = ((string)Model.ContentItem.ContentType).HtmlClassify();
+}
+
+<article class="content-item @contentTypeClassName" style="font-size:10pt">
+    @Display(Model.Header)
+</article>

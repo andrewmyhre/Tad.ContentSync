@@ -1,5 +1,14 @@
-﻿
+﻿<style>
+    contentItems a { font-size: 10pt;}
+</style>
 
-<fieldset class="contentItems bulk-items">
-@Display(Model.ContentItems)
+<fieldset class="contentItems bulk-items" style="font-size:10pt">
+    @foreach(var syncMap in Model) {
+        if (syncMap.Local != null) {
+            <div>@Display(syncMap.Local.Shape)</div>
+        }
+        if (syncMap.Remote != null) {
+            // remote info
+        }
+    }
 </fieldset>

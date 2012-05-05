@@ -1,0 +1,9 @@
+﻿<Placement>
+    <Match DisplayType="Summary">
+        <Place Parts_Common_Body_Summary="-" />
+        
+    </Match>
+    <Match ContentType="Layer">
+        <Place Parts_Widgets_LayerPart="Content:1;Wrapper=Wrapper_Layer" />
+    </Match>
+</Placement>
