@@ -24,7 +24,7 @@ namespace ContentSync.Services {
         }
 
         public IEnumerable<ContentItem> Fetch(Uri remoteInstanceRoot) {
-            string remoteExportEndpoint = remoteInstanceRoot + "/Admin/ContentImportExport/Export";
+            var remoteExportEndpoint = new Uri(remoteInstanceRoot + "/Admin/ContentImportExport/Export");
             string remoteXml = FetchRemoteExportXml(remoteExportEndpoint);
             List<ContentItem> contentItems = new List<ContentItem>();
 
