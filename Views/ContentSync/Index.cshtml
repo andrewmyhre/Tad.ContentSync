@@ -11,6 +11,10 @@
         }
         if (syncMap.Remote != null) {
             <div>REMOTE: @Display(syncMap.Remote.Shape)</div>
+        } else if (syncMap.Similar != null) {
+            foreach(var similar in syncMap.Similar) {
+                <div>Similar: @Display(similar.Shape)</div>
+            }
         }
     }
 </fieldset>

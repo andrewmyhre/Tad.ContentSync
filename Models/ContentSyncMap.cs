@@ -28,10 +28,7 @@ namespace ContentSync.Models
             }
             return false;
         } }
-    }
 
-    public class ContentItemSyncInfo {
-        public ContentItem ContentItem { get; set; }
-        public dynamic Shape { get; set; }
+        public IEnumerable<ContentItemSyncInfo> Similar { get; set; }
     }
 }

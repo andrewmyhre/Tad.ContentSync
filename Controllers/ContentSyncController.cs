@@ -11,6 +11,7 @@ using Orchard.ContentManagement.MetaData;
 using Orchard.ContentManagement.MetaData.Models;
 using Orchard.Core.Common.Models;
 using Orchard.Core.Contents.Settings;
+using Orchard.Core.Title.Models;
 using Orchard.DisplayManagement;
 using Orchard.DisplayManagement.Shapes;
 using Orchard.UI.Admin;
@@ -40,10 +41,9 @@ namespace ContentSync.Controllers
 
         public ActionResult Index() {
             // get remote content
-            var remoteContent = _remoteImportService.Fetch(new Uri("http://www.local.orchard.com"));
-
-
-
+            var remoteContent = _remoteImportService.Fetch(new Uri("http://www.local.orchard.com"))
+                .Where(rci=>rci.Has<IdentityPart>())
+                .ToList();
 
             dynamic Shape = _shapeFactory;
             var query = _contentManager
@@ -54,47 +54,43 @@ namespace ContentSync.Controllers
             var list = Shape.List();
             list.AddRange(query.Select(ci => _contentManager.BuildDisplay(ci, "Summary")));
 
-            var count = query.Count();
-            var localAndRemote = query
-                .Where(ci => remoteContent.Any(remote => remote.As<IdentityPart>().Identifier.Equals(ci.As<IdentityPart>().Identifier, StringComparison.InvariantCultureIgnoreCase)))
-                .Select(ci => new ContentSyncMap() {
-                    Local = new ContentItemSyncInfo() {
-                        ContentItem = ci,
-                        Shape = _contentManager.BuildDisplay(ci, "Summary"),
+            List<ContentSyncMap> mappings = new List<ContentSyncMap>();
 
-                    },
-                    Remote = new ContentItemSyncInfo() {
-                        ContentItem = remoteContent.SingleOrDefault(c => c.As<IdentityPart>().Identifier == ci.As<IdentityPart>().Identifier),
-                        Shape = _contentManager.BuildDisplay(remoteContent.SingleOrDefault(c => c.As<IdentityPart>().Identifier == ci.As<IdentityPart>().Identifier),
-                                                             "Summary")
-                    },
-                    Identifier = ci.Has<IdentityPart>() ? ci.As<IdentityPart>().Identifier : ""
+            foreach(var localItem in query) {
+                if (!localItem.Has<IdentityPart>())
+                    continue;
+
+                ContentSyncMap map = new ContentSyncMap();
+                map.Local = new ContentItemSyncInfo(localItem, _contentManager.BuildDisplay(localItem, "Summary"));
+                map.Identifier = localItem.As<IdentityPart>().Identifier;
+                // try to find a match
+                for (int i = 0; i < remoteContent.Count;i++ ) {
+                    var remoteItem = remoteContent[i];
+                    if (localItem.IsEqualTo(remoteItem, _contentManager))
+                    {
+                        map.Remote = new ContentItemSyncInfo(remoteItem, _contentManager.BuildDisplay(remoteItem, "Summary"));
+                        remoteContent.Remove(remoteItem);
+                        break;
+                    }
+                }
+
+                if (map.Remote ==null) {
+                    map.Similar = remoteContent.Where(r => map.Local.ContentItem.SimilarTo(r))
+                        .Select(r=>new ContentItemSyncInfo(r, _contentManager.BuildDisplay(r,"Summary")));
+                }
+
+                mappings.Add(map);
+            }
+
+            foreach (var remoteContentItem in remoteContent)
+            {
+                mappings.Add(new ContentSyncMap() {
+                    Remote=new ContentItemSyncInfo(remoteContentItem, _contentManager.BuildDisplay(remoteContentItem, "Summary")),
+                    Identifier = remoteContentItem.As<IdentityPart>().Identifier
                 });
+            }
 
-            var localOnly = query
-                .Where(ci => !remoteContent.Any(remote => remote.As<IdentityPart>().Identifier.Equals(ci.As<IdentityPart>().Identifier, StringComparison.InvariantCultureIgnoreCase)))
-                .Select(ci => new ContentSyncMap() {
-                    Local = new ContentItemSyncInfo() {
-                        ContentItem = ci,
-                        Shape = _contentManager.BuildDisplay(ci, "Summary"),
-
-                    },
-                    Identifier = ci.Has<IdentityPart>() ? ci.As<IdentityPart>().Identifier : ""
-                });
-
-            var remoteOnly = remoteContent
-                .Where(remote => !query.Any(local => local.As<IdentityPart>().Identifier.Equals(remote.As<IdentityPart>().Identifier, StringComparison.InvariantCultureIgnoreCase)))
-                .Select(remote => new ContentSyncMap() {
-                    Remote = new ContentItemSyncInfo() {
-                        ContentItem = remote,
-                        Shape = _contentManager.BuildDisplay(remote, "Summary")
-                    },
-                    Identifier = remote.As<IdentityPart>().Identifier
-                });
-
-            var syncMap = localAndRemote.Union(localOnly).Union(remoteOnly).ToList();
-
-            return View(syncMap);
+            return View(mappings);
         }
 
         private IEnumerable<ContentTypeDefinition> GetCreatableTypes(bool andContainable)
@@ -102,5 +98,46 @@ namespace ContentSync.Controllers
             return _contentDefinitionManager.ListTypeDefinitions().Where(ctd => ctd.Settings.GetModel<ContentTypeSettings>().Creatable && (!andContainable || ctd.Parts.Any(p => p.PartDefinition.Name == "ContainablePart")));
         }
 
+    }
+
+    public static class ContentItemExtensions {
+        public static bool IsEqualTo(this ContentItem o1, ContentItem o2, IContentManager contentManager) {
+            //todo: this is a little too generous
+
+            if(o1.Has<IdentityPart>() && o2.Has<IdentityPart>()) {
+                if (!o1.As<IdentityPart>().Identifier.Equals(o2.As<IdentityPart>().Identifier, StringComparison.InvariantCultureIgnoreCase))
+                    return false;
+            }
+
+            if(o1.Has<TitlePart>() && o2.Has<TitlePart>()) {
+                if (!o1.As<TitlePart>().Title.Equals(o2.As<TitlePart>().Title, StringComparison.CurrentCulture)) {
+                    return false;
+                }
+            }
+
+            if (o1.Has<BodyPart>() && o2.Has<BodyPart>()) {
+                if (!o1.As<BodyPart>().Text.Equals(o2.As<BodyPart>().Text, StringComparison.CurrentCulture)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public static bool SimilarTo(this ContentItem ci1, ContentItem ci2) {
+            if (ci1.ContentType != ci2.ContentType)
+                return false;
+
+            if(ci1.Has<TitlePart>() && ci2.Has<TitlePart>()) {
+                if (!ci1.As<TitlePart>().Title.Equals(ci2.As<TitlePart>().Title, StringComparison.InvariantCultureIgnoreCase))
+                    return false;
+            }
+            if (ci1.Has<BodyPart>() && ci2.Has<BodyPart>())
+            {
+                if (!ci1.As<BodyPart>().Text.Equals(ci2.As<BodyPart>().Text, StringComparison.InvariantCultureIgnoreCase))
+                    return false;
+            }
+
+            return true;
+        }
     }
 }
