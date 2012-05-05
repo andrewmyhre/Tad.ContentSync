@@ -24,7 +24,8 @@ namespace ContentSync.Services {
         }
 
         public IEnumerable<ContentItem> Fetch(Uri remoteInstanceRoot) {
-            string remoteXml = FetchRemoteExportXml();
+            string remoteExportEndpoint = remoteInstanceRoot + "/Admin/ContentImportExport/Export";
+            string remoteXml = FetchRemoteExportXml(remoteExportEndpoint);
             List<ContentItem> contentItems = new List<ContentItem>();
 
             var recipe = _recipeParser.ParseRecipe(remoteXml);
@@ -70,7 +71,12 @@ namespace ContentSync.Services {
             return contentItems;
         }
 
-        private string FetchRemoteExportXml()
+        private string FetchRemoteExportXml(Uri remoteExportUrl) {
+            XDocument xml = XDocument.Load(remoteExportUrl.AbsoluteUri);
+            return xml.ToString();
+        }
+
+        private string TestXml(Uri remoteInstanceRoot)
         {
             return @"<?xml version=""1.0"" encoding=""utf-16""?>
 <Orchard>
