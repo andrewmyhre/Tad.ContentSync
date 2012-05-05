@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Net;
 using System.Xml.Linq;
 using Orchard;
 using Orchard.ContentManagement;
@@ -72,8 +74,23 @@ namespace ContentSync.Services {
         }
 
         private string FetchRemoteExportXml(Uri remoteExportUrl) {
-            XDocument xml = XDocument.Load(remoteExportUrl.AbsoluteUri);
-            return xml.ToString();
+
+            string etag = "";
+
+            string xml = "";
+            HttpWebRequest request = HttpWebRequest.Create(remoteExportUrl) as HttpWebRequest;
+            using (var response = request.GetResponse() as HttpWebResponse) {
+                if(response.Headers["ETag"] != null) {
+                    etag = response.Headers["ETag"];
+                }
+
+                using (var stream = response.GetResponseStream()) 
+                using (var reader = new StreamReader(stream)) {
+                    xml = reader.ReadToEnd();
+                }
+            }
+            
+            return xml;
         }
 
         private string TestXml(Uri remoteInstanceRoot)

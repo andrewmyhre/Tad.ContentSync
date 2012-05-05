@@ -1,0 +1,20 @@
+﻿<style>
+    contentItems a { font-size: 10pt;}
+</style>
+
+<fieldset class="contentItems bulk-items" style="font-size:10pt">
+    @foreach(var syncMap in Model) {
+        <div>Balanced: @syncMap.Balanced</div>
+        <div>Equal: @syncMap.Equal</div>
+        if (syncMap.Local != null) {
+            <div>LOCAL: @Display(syncMap.Local.Shape)</div>
+        }
+        if (syncMap.Remote != null) {
+            <div>REMOTE: @Display(syncMap.Remote.Shape)</div>
+        } else if (syncMap.Similar != null) {
+            foreach(var similar in syncMap.Similar) {
+                <div>Similar: @Display(similar.Shape)</div>
+            }
+        }
+    }
+</fieldset>

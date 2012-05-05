@@ -40,8 +40,12 @@ namespace ContentSync.Controllers
         }
 
         public ActionResult Index() {
+            return View();
+        }
+
+        public ActionResult Prepare(string remote) {
             // get remote content
-            var remoteContent = _remoteImportService.Fetch(new Uri("http://www.local.orchard.com"))
+            var remoteContent = _remoteImportService.Fetch(new Uri(remote))
                 .Where(rci=>rci.Has<IdentityPart>())
                 .ToList();
 

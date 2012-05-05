@@ -96,6 +96,7 @@
       <SubType>Designer</SubType>
     </Content>
     <None Include="Views\ContentSync\Index.cshtml" />
+    <None Include="Views\ContentSync\Prepare.cshtml" />
     <Content Include="Views\Content-Layer.cshtml" />
     <Content Include="Views\Parts.Widget.Summary.cshtml" />
     <Content Include="Views\Parts.Common.Body.Summary.cshtml" />
