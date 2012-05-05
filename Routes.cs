@@ -12,13 +12,18 @@ namespace ContentSync
     {
         public IEnumerable<RouteDescriptor> GetRoutes() {
             return new RouteDescriptor[] {
-                new RouteDescriptor() {
-                    Route=new Route("Admin/ContentSync/{action}",
-                        new RouteValueDictionary{{"area","ContentSync"}, {"action","Index"}, {"controller","ContentSync"}},
-                        new RouteValueDictionary(),
-                        new RouteValueDictionary(){{"area","ContentSync"}},
-                        new MvcRouteHandler())
-                }
+                SimpleRoute("Admin/ContentSync/{action}", "ContentSync", "ContentSync", "Index"),
+                SimpleRoute("Admin/ContentImportExport/{action}", "ContentSync", "ContentImportExport", "Index"),
+            };
+        }
+
+        private static RouteDescriptor SimpleRoute(string url, object area, object controller, object defaultAction) {
+            return new RouteDescriptor() {
+                Route = new Route(url,
+                                  new RouteValueDictionary {{"area", area}, {"action", defaultAction}, {"controller", controller}},
+                                  new RouteValueDictionary(),
+                                  new RouteValueDictionary() {{"area", area}},
+                                  new MvcRouteHandler())
             };
         }
 

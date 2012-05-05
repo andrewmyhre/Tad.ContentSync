@@ -78,9 +78,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AdminMenu.cs" />
+    <Compile Include="Controllers\ContentImportExportController.cs" />
     <Compile Include="Controllers\ContentSyncController.cs" />
     <Compile Include="Models\ContentSyncMap.cs" />
     <Compile Include="Routes.cs" />
+    <Compile Include="Services\IRemoteImportService.cs" />
+    <Compile Include="Services\RemoteImportService.cs" />
     <Compile Include="Shapes.cs" />
   </ItemGroup>
   <ItemGroup>
