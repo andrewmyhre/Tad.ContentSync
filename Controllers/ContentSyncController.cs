@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Web.Mvc;
+using ContentSync.Extensions;
 using ContentSync.Models;
 using ContentSync.Services;
 using Orchard;
@@ -11,7 +12,6 @@ using Orchard.ContentManagement.MetaData;
 using Orchard.ContentManagement.MetaData.Models;
 using Orchard.Core.Common.Models;
 using Orchard.Core.Contents.Settings;
-using Orchard.Core.Title.Models;
 using Orchard.DisplayManagement;
 using Orchard.DisplayManagement.Shapes;
 using Orchard.UI.Admin;
@@ -70,7 +70,7 @@ namespace ContentSync.Controllers
                 // try to find a match
                 for (int i = 0; i < remoteContent.Count;i++ ) {
                     var remoteItem = remoteContent[i];
-                    if (localItem.IsEqualTo(remoteItem, _contentManager))
+                    if (localItem.IsEqualTo(remoteItem))
                     {
                         map.Remote = new ContentItemSyncInfo(remoteItem, _contentManager.BuildDisplay(remoteItem, "Summary"));
                         remoteContent.Remove(remoteItem);
@@ -102,46 +102,5 @@ namespace ContentSync.Controllers
             return _contentDefinitionManager.ListTypeDefinitions().Where(ctd => ctd.Settings.GetModel<ContentTypeSettings>().Creatable && (!andContainable || ctd.Parts.Any(p => p.PartDefinition.Name == "ContainablePart")));
         }
 
-    }
-
-    public static class ContentItemExtensions {
-        public static bool IsEqualTo(this ContentItem o1, ContentItem o2, IContentManager contentManager) {
-            //todo: this is a little too generous
-
-            if(o1.Has<IdentityPart>() && o2.Has<IdentityPart>()) {
-                if (!o1.As<IdentityPart>().Identifier.Equals(o2.As<IdentityPart>().Identifier, StringComparison.InvariantCultureIgnoreCase))
-                    return false;
-            }
-
-            if(o1.Has<TitlePart>() && o2.Has<TitlePart>()) {
-                if (!o1.As<TitlePart>().Title.Equals(o2.As<TitlePart>().Title, StringComparison.CurrentCulture)) {
-                    return false;
-                }
-            }
-
-            if (o1.Has<BodyPart>() && o2.Has<BodyPart>()) {
-                if (!o1.As<BodyPart>().Text.Equals(o2.As<BodyPart>().Text, StringComparison.CurrentCulture)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        public static bool SimilarTo(this ContentItem ci1, ContentItem ci2) {
-            if (ci1.ContentType != ci2.ContentType)
-                return false;
-
-            if(ci1.Has<TitlePart>() && ci2.Has<TitlePart>()) {
-                if (!ci1.As<TitlePart>().Title.Equals(ci2.As<TitlePart>().Title, StringComparison.InvariantCultureIgnoreCase))
-                    return false;
-            }
-            if (ci1.Has<BodyPart>() && ci2.Has<BodyPart>())
-            {
-                if (!ci1.As<BodyPart>().Text.Equals(ci2.As<BodyPart>().Text, StringComparison.InvariantCultureIgnoreCase))
-                    return false;
-            }
-
-            return true;
-        }
     }
 }

@@ -80,6 +80,7 @@
     <Compile Include="AdminMenu.cs" />
     <Compile Include="Controllers\ContentImportExportController.cs" />
     <Compile Include="Controllers\ContentSyncController.cs" />
+    <Compile Include="Extensions\ContentItemExtensions.cs" />
     <Compile Include="Models\ContentItemSyncInfo.cs" />
     <Compile Include="Models\ContentSyncMap.cs" />
     <Compile Include="Routes.cs" />

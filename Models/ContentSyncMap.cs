@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
+using ContentSync.Extensions;
 
 namespace ContentSync.Models
 {
@@ -15,16 +16,7 @@ namespace ContentSync.Models
         public bool Balanced { get { return Local != null && Remote != null; } }
         public bool Equal { get {
             if (Balanced) {
-                if (Local.ContentItem.Has<CommonPart>() && Remote.ContentItem.Has<CommonPart>()) {
-                    var localPublished = Local.ContentItem.As<CommonPart>().PublishedUtc;
-                    var remotePublished = Remote.ContentItem.As<CommonPart>().PublishedUtc;
-
-                    if (localPublished.HasValue && remotePublished.HasValue) {
-                        if (localPublished.Value <= remotePublished.Value) {
-                            return true;
-                        }
-                    }
-                }
+                return Local.ContentItem.IsEqualTo(Remote.ContentItem);
             }
             return false;
         } }
