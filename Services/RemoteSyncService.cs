@@ -1,11 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Xml.Linq;
+using ContentSync.Extensions;
+using ContentSync.Models;
 using Orchard;
 using Orchard.ContentManagement;
 using Orchard.ContentManagement.Handlers;
+using Orchard.Core.Common.Models;
+using Orchard.DisplayManagement;
 using Orchard.Recipes.Models;
 using Orchard.Recipes.Services;
 
@@ -14,15 +19,18 @@ namespace ContentSync.Services {
         private readonly IRecipeParser _recipeParser;
         private readonly IOrchardServices _orchardServices;
         private readonly Lazy<IEnumerable<IContentHandler>> _handlers;
+        private readonly IShapeFactory _shapeFactory;
 
         public RemoteSyncService(
             IRecipeParser recipeParser,
             IOrchardServices orchardServices,
-            Lazy<IEnumerable<IContentHandler>> handlers)
+            Lazy<IEnumerable<IContentHandler>> handlers,
+            IShapeFactory shapeFactory)
         {
             _recipeParser = recipeParser;
             _orchardServices = orchardServices;
             _handlers = handlers;
+            _shapeFactory = shapeFactory;
         }
 
         public IEnumerable<ContentItem> Fetch(Uri remoteInstanceRoot) {
@@ -91,6 +99,65 @@ namespace ContentSync.Services {
             }
             
             return xml;
+        }
+
+        public IEnumerable<ContentSyncMap> GenerateSynchronisationMappings(IEnumerable<ContentItem> remoteContents) {
+            List<ContentItem> remoteContent = new List<ContentItem>(remoteContents);
+            dynamic Shape = _shapeFactory;
+            var query = _orchardServices.ContentManager
+                .Query(VersionOptions.Latest)
+                .Join<IdentityPartRecord>()
+                .List();
+
+            var list = Shape.List();
+            list.AddRange(query.Select(ci => _orchardServices.ContentManager.BuildDisplay(ci, "Summary")));
+
+            List<ContentSyncMap> mappings = new List<ContentSyncMap>();
+
+            foreach (var localItem in query)
+            {
+                if (!localItem.Has<IdentityPart>())
+                    continue;
+
+                ContentSyncMap map = new ContentSyncMap();
+                map.Local = new ContentItemSyncInfo(localItem, _orchardServices.ContentManager.BuildDisplay(localItem, "Summary"));
+                map.Identifier = _orchardServices.ContentManager.GetItemMetadata(localItem).Identity.ToString();
+
+                // try to find a match
+                for (int i = 0; i < remoteContent.Count; i++)
+                {
+                    var remoteItem = remoteContent[i];
+                    if (localItem.IsEqualTo(remoteItem))
+                    {
+                        map.Remote = new ContentItemSyncInfo(remoteItem, _orchardServices.ContentManager.BuildDisplay(remoteItem, "Summary"));
+                        remoteContent.Remove(remoteItem);
+                        break;
+                    }
+                }
+
+                if (map.Remote == null)
+                {
+                    map.Similar = remoteContent.Where(r => map.Local.ContentItem.SimilarTo(r))
+                        .Select(r => {
+                            dynamic shape = _orchardServices.ContentManager.BuildDisplay(r, "Summary")
+                                .Identifier(_orchardServices.ContentManager.GetItemMetadata(r).Identity.ToString());
+                            return new ContentItemSyncInfo(r, shape);
+                        });
+                }
+
+                mappings.Add(map);
+            }
+
+            foreach (var remoteContentItem in remoteContent)
+            {
+                mappings.Add(new ContentSyncMap()
+                {
+                    Remote = new ContentItemSyncInfo(remoteContentItem, _orchardServices.ContentManager.BuildDisplay(remoteContentItem, "Summary")),
+                    Identifier = remoteContentItem.As<IdentityPart>().Identifier
+                });
+            }
+
+            return mappings;
         }
 
         private string TestRemoteXml()

@@ -35,11 +35,11 @@ namespace ContentSync.Extensions {
                 if (!ci1.As<TitlePart>().Title.Equals(ci2.As<TitlePart>().Title, StringComparison.InvariantCultureIgnoreCase))
                     return false;
             }
-            if (ci1.Has<BodyPart>() && ci2.Has<BodyPart>())
+            /*if (ci1.Has<BodyPart>() && ci2.Has<BodyPart>())
             {
                 if (!ci1.As<BodyPart>().Text.Equals(ci2.As<BodyPart>().Text, StringComparison.InvariantCultureIgnoreCase))
                     return false;
-            }
+            }*/
 
             return true;
         }

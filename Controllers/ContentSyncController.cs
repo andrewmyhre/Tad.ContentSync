@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 using System.Web.Mvc;
+using System.Xml.Linq;
 using ContentSync.Extensions;
 using ContentSync.Models;
 using ContentSync.Services;
@@ -49,58 +51,52 @@ namespace ContentSync.Controllers
                 .Where(rci=>rci.Has<IdentityPart>())
                 .ToList();
 
-            dynamic Shape = _shapeFactory;
-            var query = _contentManager
-                .Query(VersionOptions.Latest)
-                .Join<IdentityPartRecord>()
-                .List();
-
-            var list = Shape.List();
-            list.AddRange(query.Select(ci => _contentManager.BuildDisplay(ci, "Summary")));
-
-            List<ContentSyncMap> mappings = new List<ContentSyncMap>();
-
-            foreach(var localItem in query) {
-                if (!localItem.Has<IdentityPart>())
-                    continue;
-
-                ContentSyncMap map = new ContentSyncMap();
-                map.Local = new ContentItemSyncInfo(localItem, _contentManager.BuildDisplay(localItem, "Summary"));
-                map.Identifier = localItem.As<IdentityPart>().Identifier;
-                // try to find a match
-                for (int i = 0; i < remoteContent.Count;i++ ) {
-                    var remoteItem = remoteContent[i];
-                    if (localItem.IsEqualTo(remoteItem))
-                    {
-                        map.Remote = new ContentItemSyncInfo(remoteItem, _contentManager.BuildDisplay(remoteItem, "Summary"));
-                        remoteContent.Remove(remoteItem);
-                        break;
-                    }
-                }
-
-                if (map.Remote ==null) {
-                    map.Similar = remoteContent.Where(r => map.Local.ContentItem.SimilarTo(r))
-                        .Select(r=>new ContentItemSyncInfo(r, _contentManager.BuildDisplay(r,"Summary")));
-                }
-
-                mappings.Add(map);
-            }
-
-            foreach (var remoteContentItem in remoteContent)
-            {
-                mappings.Add(new ContentSyncMap() {
-                    Remote=new ContentItemSyncInfo(remoteContentItem, _contentManager.BuildDisplay(remoteContentItem, "Summary")),
-                    Identifier = remoteContentItem.As<IdentityPart>().Identifier
-                });
-            }
+            var mappings = _remoteSyncService.GenerateSynchronisationMappings(remoteContent);
 
             return View(mappings);
+        }
+
+        [HttpPost]
+        public ActionResult Synchronise() {
+            StringBuilder result = new StringBuilder();
+            ImportContentSession importContentSession = new ImportContentSession(_contentManager);
+
+            XDocument synchronisation = new XDocument();
+            synchronisation.Add(new XElement("ContentSync"));
+            var actions = Request.Form.ToPairs().Where(p => p.Key.StartsWith("action:"));
+            foreach(var action in actions) {
+                result.AppendLine(action.Key + ":" + action.Value);
+                var actionDetail = action.Value.Split(':');
+                var source = action.Key.Split(':'); // action:[identity]
+                if (actionDetail.Length < 2) {
+                    // todo: log
+                    continue;
+                }
+
+                XElement sync = new XElement("Sync");
+                var contentItem = importContentSession.Get(source[1]);
+                if (contentItem==null) {
+                    // todo: log
+                    continue;
+                }
+
+                switch(actionDetail[0]) {
+                    case "replace":
+                        sync.Add(new XAttribute("Action", "Replace"));
+                        sync.Add(new XAttribute("TargetId", actionDetail[1]));
+                        sync.Add(_contentManager.Export(contentItem));
+                        break;
+                }
+
+                synchronisation.Element("ContentSync").Add(sync);
+            }
+
+            return new ContentResult(){Content=synchronisation.ToString(), ContentType = "text/xml"};
         }
 
         private IEnumerable<ContentTypeDefinition> GetCreatableTypes(bool andContainable)
         {
             return _contentDefinitionManager.ListTypeDefinitions().Where(ctd => ctd.Settings.GetModel<ContentTypeSettings>().Creatable && (!andContainable || ctd.Parts.Any(p => p.PartDefinition.Name == "ContainablePart")));
         }
-
     }
 }
