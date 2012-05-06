@@ -139,7 +139,7 @@ namespace ContentSync.Services {
                             dynamic shape = _orchardServices.ContentManager.BuildDisplay(r, "Summary")
                                 .Identifier(_orchardServices.ContentManager.GetItemMetadata(r).Identity.ToString());
                             return new ContentItemSyncInfo(r, shape);
-                        });
+                        }).ToList();
                 }
 
                 mappings.Add(map);

@@ -17,5 +17,13 @@ namespace ContentSync.Models
         public bool Equal { get; set; }
 
         public IEnumerable<ContentItemSyncInfo> Similar { get; set; }
+
+        public int EqualityRank { get {
+            if (Balanced && Equal)
+                return 0;
+            if (Balanced)
+                return 1;
+            return 2;
+        }}
     }
 }

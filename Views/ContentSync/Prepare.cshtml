@@ -1,45 +1,91 @@
 ﻿<style>
     contentItems a { font-size: 10pt;}
+    div.map-container{ float: left;width: 100%;margin-bottom: 4px;}
+    table.diff{ width: 100%;}
+    .type-0 td { border-color: greenyellow;}
+    .type-1 td { border-color: yellow;}
+    .type-2 td { border-color: lightcoral;}
+    td.left{ border-width: 1px 0px 1px 1px;border-style: solid;}
+    td.middle{ border-width: 1px 0px 1px 0px;border-style: solid;text-align: center;}
+    td.right{ border-width: 1px 1px 1px 0px;border-style: solid;}
+    th{ font-weight: bold;font-size: 1.4em;text-align: center;}
 </style>
 
-@using (Html.BeginForm("Synchronise", "ContentSync", FormMethod.Post)) {
+@using (Html.BeginForm("Synchronise", "ContentSync", FormMethod.Post))
+{
     @Html.AntiForgeryTokenOrchard()
     <input type="submit" value="Synchronise Now"/>
     <fieldset class="contentItems bulk-items" style="font-size: 10pt">
+        <table class="diff">
+            <thead>
+                <tr>
+                    <th class="left">Local</th>
+                    <th class="middle">State</th>
+                    <th class="right">Remote</th>
+                </tr>
+            </thead>
+            <tbody>
+                
         @foreach (var syncMap in Model) {
-            <div style="border: 2px solid red">
-                balanced: @syncMap.Balanced, equal: @syncMap.Equal
-                @if (syncMap.Balanced && !syncMap.Equal) {
-                    @Display(syncMap.Local.Shape)
-                    if (syncMap.Remote != null) {
-                        <select name="action:@syncMap.Identifier">
-                            <option value="ignore">Ignore</option>
-                            <option value="push:@syncMap.Remote.Shape.Identifier">Update Remote</option>
-                        </select>
+            <tr class="type-@syncMap.EqualityRank">
+                <td class="left">
+                    @if (syncMap.Local != null && syncMap.Local.Shape != null) {
+                        @Display(syncMap.Local.Shape)
                     }
-                }
-                else if (syncMap.Similar != null) {
-                    <select name="action:@syncMap.Identifier">
-                        <option value="ignore">Ignore</option>
-                        <option value="push:null">Create on Remote</option>
-                        @foreach (var similar in syncMap.Similar) {
-                            <option value="replace:@similar.Shape.Identifier()">Replace remote @Display(similar.Shape)</option>
+                </td>
+                <td class="middle">@if (syncMap.Balanced && syncMap.Equal) {
+                        <text>Same on both</text>
+                    }
+                    else if (syncMap.Balanced && !syncMap.Equal) {
+                        if (syncMap.Remote != null) {
+                            <text>Different on remote</text><br/>
+                            <select name="action:@syncMap.Identifier">
+                                <option value="ignore">Ignore</option>
+                                <option value="push:@syncMap.Remote.Shape.Identifier">Update Remote</option>
+                            </select>
                         }
-                    </select>
-                }
-            
-                @if (syncMap.Local != null) {
-                    <div>LOCAL: @Display(syncMap.Local.Shape)</div>
-                }
-                @if (syncMap.Remote != null) {
-                    <div>REMOTE: @Display(syncMap.Remote.Shape)</div>
-                }
-                else if (syncMap.Similar != null) {
-                    foreach (var similar in syncMap.Similar) {
-                        <div>Similar: @Display(similar.Shape)</div>
                     }
-                }
-            </div>
+                    else if (!syncMap.Balanced) {
+                        if (syncMap.Remote == null
+                            && syncMap.Similar != null
+                            && syncMap.Similar.Count > 0) {
+                            <text>Similar content with mismatched IDs</text><br/>
+                            <select name="action:@syncMap.Identifier">
+                                <option value="ignore">Ignore</option>
+                                <option value="push:null">Create on Remote</option>
+                                @foreach (var similar in syncMap.Similar) {
+                                    <option value="replace:@similar.Shape.Identifier()">Replace remote @Display(similar.Shape)</option>
+                                }
+                            </select>
+
+                        }
+                        else {
+                            if (syncMap.Remote == null && syncMap.Local != null) {
+                                <text>Local only</text><br/>
+                                <select name="action:@syncMap.Identifier">
+                                    <option value="ignore">Ignore</option>
+                                    <option value="push:null">Create on Remote</option>
+                                </select>
+                            }
+                            else if (syncMap.Remote != null && syncMap.Local == null) {
+                                <text>Remote only</text>
+                            }
+                        }
+                    }</td>
+                <td class="right">
+                    @if (syncMap.Remote != null) {
+                        @Display(syncMap.Remote.Shape)
+                    }
+                    else if (syncMap.Similar != null) {
+                        foreach (var similar in syncMap.Similar) {
+                            @Display(similar.Shape)
+                        }
+                    }
+            
+                </td>
+            </tr>
         }
+            </tbody>
+        </table>
     </fieldset>
 }

@@ -61,7 +61,8 @@ namespace ContentSync.Controllers
 
 
 
-            var mappings = _remoteSyncService.GenerateSynchronisationMappings(localContent, remoteContent);
+            var mappings = _remoteSyncService.GenerateSynchronisationMappings(localContent, remoteContent)
+                .OrderByDescending(m=>m.EqualityRank);
 
             return View(mappings);
         }
