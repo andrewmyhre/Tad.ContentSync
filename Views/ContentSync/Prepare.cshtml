@@ -14,13 +14,14 @@
                     if (syncMap.Remote != null) {
                         <select name="action:@syncMap.Identifier">
                             <option value="ignore">Ignore</option>
-                            <option value="push">Push</option>
+                            <option value="push:@syncMap.Remote.Shape.Identifier">Update Remote</option>
                         </select>
                     }
                 }
                 else if (syncMap.Similar != null) {
                     <select name="action:@syncMap.Identifier">
                         <option value="ignore">Ignore</option>
+                        <option value="push:null">Create on Remote</option>
                         @foreach (var similar in syncMap.Similar) {
                             <option value="replace:@similar.Shape.Identifier()">Replace remote @Display(similar.Shape)</option>
                         }

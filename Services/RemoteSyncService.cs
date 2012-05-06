@@ -9,7 +9,9 @@ using ContentSync.Models;
 using Orchard;
 using Orchard.ContentManagement;
 using Orchard.ContentManagement.Handlers;
+using Orchard.Core.Common.Handlers;
 using Orchard.Core.Common.Models;
+using Orchard.Core.Title.Models;
 using Orchard.DisplayManagement;
 using Orchard.Recipes.Models;
 using Orchard.Recipes.Services;
@@ -35,7 +37,7 @@ namespace ContentSync.Services {
 
         public IEnumerable<ContentItem> Fetch(Uri remoteInstanceRoot) {
             var remoteExportEndpoint = new Uri(remoteInstanceRoot + "/Admin/ContentImportExport/Export");
-            string remoteXml = TestRemoteXml();
+            string remoteXml = FetchRemoteExportXml(remoteExportEndpoint);
             List<ContentItem> contentItems = new List<ContentItem>();
 
             var recipe = _recipeParser.ParseRecipe(remoteXml);
@@ -51,15 +53,7 @@ namespace ContentSync.Services {
                     var identity = elementId.Value;
                     var status = element.Attribute("Status");
 
-                    var item = importContentSession.Get(identity);
-                    if (item == null)
-                    {
-                        item = _orchardServices.ContentManager.New(element.Name.LocalName);
-                    }
-                    else
-                    {
-                        item = _orchardServices.ContentManager.Get(item.Id, VersionOptions.DraftRequired);
-                    }
+                    var item = _orchardServices.ContentManager.New(element.Name.LocalName);
 
                     var context = new ImportContentContext(item, element, importContentSession);
 
@@ -75,8 +69,10 @@ namespace ContentSync.Services {
 
 
                     contentItems.Add(item);
+                    _orchardServices.ContentManager.Remove(item);
                 }
             }
+            _orchardServices.ContentManager.Clear();
 
             return contentItems;
         }
@@ -101,20 +97,17 @@ namespace ContentSync.Services {
             return xml;
         }
 
-        public IEnumerable<ContentSyncMap> GenerateSynchronisationMappings(IEnumerable<ContentItem> remoteContents) {
+        public IEnumerable<ContentSyncMap> GenerateSynchronisationMappings(IEnumerable<ContentItem> localContent, IEnumerable<ContentItem> remoteContents) {
+            _orchardServices.ContentManager.Clear();
             List<ContentItem> remoteContent = new List<ContentItem>(remoteContents);
             dynamic Shape = _shapeFactory;
-            var query = _orchardServices.ContentManager
-                .Query(VersionOptions.Latest)
-                .Join<IdentityPartRecord>()
-                .List();
 
-            var list = Shape.List();
-            list.AddRange(query.Select(ci => _orchardServices.ContentManager.BuildDisplay(ci, "Summary")));
+            //var list = Shape.List();
+            //list.AddRange(localContent.Select(ci => _orchardServices.ContentManager.BuildDisplay(ci, "Summary")));
 
             List<ContentSyncMap> mappings = new List<ContentSyncMap>();
 
-            foreach (var localItem in query)
+            foreach (var localItem in localContent)
             {
                 if (!localItem.Has<IdentityPart>())
                     continue;
@@ -127,10 +120,14 @@ namespace ContentSync.Services {
                 for (int i = 0; i < remoteContent.Count; i++)
                 {
                     var remoteItem = remoteContent[i];
-                    if (localItem.IsEqualTo(remoteItem))
-                    {
-                        map.Remote = new ContentItemSyncInfo(remoteItem, _orchardServices.ContentManager.BuildDisplay(remoteItem, "Summary"));
+                    var localIdentifier = _orchardServices.ContentManager.GetItemMetadata(localItem).Identity.ToString();
+                    var remoteIdentifier = _orchardServices.ContentManager.GetItemMetadata(remoteItem).Identity.ToString();
+                    if (localIdentifier.Equals(remoteIdentifier)) {
+                        var remoteShape = _orchardServices.ContentManager.BuildDisplay(remoteItem, "Summary");
+                        map.Remote = new ContentItemSyncInfo(remoteItem, remoteShape);
                         remoteContent.Remove(remoteItem);
+                        map.Equal = localItem.IsEqualTo(remoteItem, _orchardServices.ContentManager);
+
                         break;
                     }
                 }

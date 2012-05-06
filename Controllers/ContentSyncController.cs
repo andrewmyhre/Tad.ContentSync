@@ -46,12 +46,22 @@ namespace ContentSync.Controllers
         }
 
         public ActionResult Prepare(string remote) {
+            // get localcontent
+            var localContent = _contentManager
+                .Query(VersionOptions.Latest)
+                .Join<IdentityPartRecord>()
+                .List();
+
             // get remote content
             var remoteContent = _remoteSyncService.Fetch(new Uri(remote))
-                .Where(rci=>rci.Has<IdentityPart>())
+                .Where(rci => rci.Has<IdentityPart>())
                 .ToList();
 
-            var mappings = _remoteSyncService.GenerateSynchronisationMappings(remoteContent);
+            _contentManager.Clear();
+
+
+
+            var mappings = _remoteSyncService.GenerateSynchronisationMappings(localContent, remoteContent);
 
             return View(mappings);
         }
@@ -84,6 +94,10 @@ namespace ContentSync.Controllers
                     case "replace":
                         sync.Add(new XAttribute("Action", "Replace"));
                         sync.Add(new XAttribute("TargetId", actionDetail[1]));
+                        sync.Add(_contentManager.Export(contentItem));
+                        break;
+                    case "push":
+                        sync.Add(new XAttribute("Action", "Import"));
                         sync.Add(_contentManager.Export(contentItem));
                         break;
                 }

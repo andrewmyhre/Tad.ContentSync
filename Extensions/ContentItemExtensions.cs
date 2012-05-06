@@ -1,11 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
 using Orchard.Core.Title.Models;
 
 namespace ContentSync.Extensions {
     public static class ContentItemExtensions {
-        public static bool IsEqualTo(this ContentItem o1, ContentItem o2) {
+        public static bool IsEqualTo(this ContentItem o1, ContentItem o2, IContentManager contentManager) {
             //todo: this is a little too generous
 
             if(o1.Has<IdentityPart>() && o2.Has<IdentityPart>()) {
@@ -24,6 +26,32 @@ namespace ContentSync.Extensions {
                     return false;
                 }
             }
+
+            // compare xml elements
+            var export1 = contentManager.Export(o1);
+            var export2 = contentManager.Export(o2);
+
+            var attributesToCompare = new string[] {"Title", "Text"};
+            var elementsToCompare = new string[]{"BodyPart", "WidgetPart", "TitlePart"};
+
+            foreach(var element in export1.Elements()) {
+                if (!elementsToCompare.Contains(element.Name.LocalName))
+                    continue;
+
+                var counterpart = export2.Element(element.Name.LocalName);
+                if (counterpart == null)
+                    return false;
+                foreach (var attributeName in attributesToCompare) {
+                    if (element.Attribute(attributeName) != null &&
+                        counterpart.Attribute(attributeName) != null)
+                    {
+                        if (!element.Attribute(attributeName).Value.Equals(counterpart.Attribute(attributeName).Value))
+                            return false;
+                    }
+                    
+                }
+            }
+
             return true;
         }
 

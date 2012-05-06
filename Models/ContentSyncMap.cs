@@ -14,12 +14,7 @@ namespace ContentSync.Models
         public string Identifier { get; set; }
         public ContentItemSyncInfo Remote { get; set; }
         public bool Balanced { get { return Local != null && Remote != null; } }
-        public bool Equal { get {
-            if (Balanced) {
-                return Local.ContentItem.IsEqualTo(Remote.ContentItem);
-            }
-            return false;
-        } }
+        public bool Equal { get; set; }
 
         public IEnumerable<ContentItemSyncInfo> Similar { get; set; }
     }
