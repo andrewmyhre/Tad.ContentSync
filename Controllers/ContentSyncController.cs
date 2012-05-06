@@ -25,18 +25,18 @@ namespace ContentSync.Controllers
         private readonly IOrchardServices _services;
         private readonly IShapeFactory _shapeFactory;
         private readonly IContentDefinitionManager _contentDefinitionManager;
-        private readonly IRemoteImportService _remoteImportService;
+        private readonly IRemoteSyncService _remoteSyncService;
 
         public ContentSyncController(IContentManager contentManager,
             IOrchardServices services,
             IShapeFactory shapeFactory,
             IContentDefinitionManager contentDefinitionManager,
-            IRemoteImportService remoteImportService) {
+            IRemoteSyncService remoteSyncService) {
             _contentManager = contentManager;
             _services = services;
             _shapeFactory = shapeFactory;
             _contentDefinitionManager = contentDefinitionManager;
-            _remoteImportService = remoteImportService;
+            _remoteSyncService = remoteSyncService;
         }
 
         public ActionResult Index() {
@@ -45,7 +45,7 @@ namespace ContentSync.Controllers
 
         public ActionResult Prepare(string remote) {
             // get remote content
-            var remoteContent = _remoteImportService.Fetch(new Uri(remote))
+            var remoteContent = _remoteSyncService.Fetch(new Uri(remote))
                 .Where(rci=>rci.Has<IdentityPart>())
                 .ToList();
 

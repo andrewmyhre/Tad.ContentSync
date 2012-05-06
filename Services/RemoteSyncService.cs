@@ -10,12 +10,12 @@ using Orchard.Recipes.Models;
 using Orchard.Recipes.Services;
 
 namespace ContentSync.Services {
-    public class RemoteImportService : IRemoteImportService {
+    public class RemoteSyncService : IRemoteSyncService {
         private readonly IRecipeParser _recipeParser;
         private readonly IOrchardServices _orchardServices;
         private readonly Lazy<IEnumerable<IContentHandler>> _handlers;
 
-        public RemoteImportService(
+        public RemoteSyncService(
             IRecipeParser recipeParser,
             IOrchardServices orchardServices,
             Lazy<IEnumerable<IContentHandler>> handlers)
@@ -27,7 +27,7 @@ namespace ContentSync.Services {
 
         public IEnumerable<ContentItem> Fetch(Uri remoteInstanceRoot) {
             var remoteExportEndpoint = new Uri(remoteInstanceRoot + "/Admin/ContentImportExport/Export");
-            string remoteXml = TestXml();
+            string remoteXml = TestRemoteXml();
             List<ContentItem> contentItems = new List<ContentItem>();
 
             var recipe = _recipeParser.ParseRecipe(remoteXml);
@@ -93,7 +93,7 @@ namespace ContentSync.Services {
             return xml;
         }
 
-        private string TestXml()
+        private string TestRemoteXml()
         {
             return @"<?xml version=""1.0"" encoding=""utf-16""?>
 <Orchard>
