@@ -1,4 +1,4 @@
-Name: ContentSync
+Name: Content Synchronisation
 AntiForgery: enabled
 Author: Andrew Myhre
 Website: http://orchardproject.net
@@ -6,6 +6,6 @@ Version: 1.0
 OrchardVersion: 1.0
 Description: Description for the module
 Features:
-    ContentSync:
+    Content Synchronisation:
         Description: Synchrpnise content between Orchard instances
-		Dependencies: jQuery
+		Dependencies: Orchard.jQuery
