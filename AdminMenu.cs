@@ -9,7 +9,7 @@ namespace Tad.ContentSync {
 
         public void GetNavigation(NavigationBuilder builder) {
             builder.Add(T("Content Sync"), "1.5", 
-                item => item.Action("Index","ContentSync", new {area="ContentSync"}));
+                item => item.Action("Index","ContentSync", new {area="Tad.ContentSync"}));
         }
     }
 }
