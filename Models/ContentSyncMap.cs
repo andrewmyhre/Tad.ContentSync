@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Xml.Linq;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
 using ContentSync.Extensions;
@@ -25,5 +26,6 @@ namespace ContentSync.Models
                 return 1;
             return 2;
         }}
+
     }
 }
