@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Web.Mvc;
 using System.Xml;
@@ -53,15 +55,21 @@ namespace ContentSync.Controllers
             };
         }
 
+    [HttpPost]
         public ActionResult Import() {
+        string requestContent = "";
+        using (StreamReader reader = new StreamReader(Request.InputStream, Request.ContentEncoding)) {
+            requestContent = reader.ReadToEnd();
+        }
 
-            XDocument xml = XDocument.Parse(TestImportXml());
+
+        XDocument xml = XDocument.Parse(requestContent);
             var syncSteps = xml.Element("ContentSync").Elements("Sync")
                 .Select(e => ImportSyncAction.Parse(e));
 
             _remoteImportService.Import(syncSteps);
 
-            return new ContentResult(){Content="OK"};
+            return new HttpStatusCodeResult((int)HttpStatusCode.Accepted);
         }
 
         public string TestImportXml()
