@@ -1,19 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using System.Web.Mvc;
 using System.Web.Routing;
 using Orchard.Mvc.Routes;
 
-namespace ContentSync
+namespace Tad.ContentSync
 {
     public class Routes : IRouteProvider
-    {
+    { 
         public IEnumerable<RouteDescriptor> GetRoutes() {
             return new RouteDescriptor[] {
-                SimpleRoute("Admin/ContentSync/{action}", "ContentSync", "ContentSync", "Index"),
-                SimpleRoute("Admin/ContentImportExport/{action}", "ContentSync", "ContentImportExport", "Index"),
+                SimpleRoute("Admin/ContentSync/{action}", "Tad.ContentSync", "ContentSync", "Index"),
+                SimpleRoute("Admin/ContentImportExport/{action}", "Tad.ContentSync", "ContentImportExport", "Index"),
             };
         }
 

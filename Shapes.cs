@@ -1,18 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Text;
+﻿using System.IO;
 using System.Web.Mvc;
-using ClaySharp;
 using Orchard;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
 using Orchard.DisplayManagement;
-using Orchard.DisplayManagement.Descriptors;
 
-namespace ContentSync
+namespace Tad.ContentSync
 {
     public class Shapes : IDependency
     {

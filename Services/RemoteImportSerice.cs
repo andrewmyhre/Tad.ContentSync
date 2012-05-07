@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
-using ContentSync.Models;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
 using Orchard.Data;
 using Orchard.Logging;
+using Tad.ContentSync.Models;
 
-namespace ContentSync.Services {
+namespace Tad.ContentSync.Services {
     public class RemoteImportSerice : IRemoteImportService {
         private readonly ITransactionManager _transactionManager;
         private readonly IContentManager _contentManager;

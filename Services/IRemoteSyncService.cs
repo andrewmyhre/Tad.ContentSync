@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using ContentSync.Models;
 using Orchard;
 using Orchard.ContentManagement;
+using Tad.ContentSync.Models;
 
-namespace ContentSync.Services
+namespace Tad.ContentSync.Services
 {
     public interface IRemoteSyncService: IDependency {
         IEnumerable<ContentItem> Fetch(Uri remoteInstanceRoot);

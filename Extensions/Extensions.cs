@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 
-namespace ContentSync.Extensions {
+namespace Tad.ContentSync.Extensions {
     public static class Extensions {
         public static IEnumerable<KeyValuePair<string, string>> ToPairs(this NameValueCollection collection)
         {

@@ -3,20 +3,16 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Xml.Linq;
-using ContentSync.Extensions;
-using ContentSync.Models;
 using Orchard;
 using Orchard.ContentManagement;
 using Orchard.ContentManagement.Handlers;
-using Orchard.Core.Common.Handlers;
 using Orchard.Core.Common.Models;
-using Orchard.Core.Title.Models;
 using Orchard.DisplayManagement;
-using Orchard.Recipes.Models;
 using Orchard.Recipes.Services;
+using Tad.ContentSync.Extensions;
+using Tad.ContentSync.Models;
 
-namespace ContentSync.Services {
+namespace Tad.ContentSync.Services {
     public class RemoteSyncService : IRemoteSyncService {
         private readonly IRecipeParser _recipeParser;
         private readonly IOrchardServices _orchardServices;

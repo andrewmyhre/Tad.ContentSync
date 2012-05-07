@@ -1,7 +1,7 @@
 using System.Xml.Linq;
 using Orchard.ContentManagement;
 
-namespace ContentSync.Models {
+namespace Tad.ContentSync.Models {
     public class ContentItemSyncInfo {
         public ContentItemSyncInfo() {
             

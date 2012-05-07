@@ -1,11 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
 using Orchard.Core.Title.Models;
 
-namespace ContentSync.Extensions {
+namespace Tad.ContentSync.Extensions {
     public static class ContentItemExtensions {
         public static bool IsEqualTo(this ContentItem o1, ContentItem o2, IContentManager contentManager) {
             //todo: this is a little too generous

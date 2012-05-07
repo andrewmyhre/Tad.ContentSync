@@ -117,7 +117,6 @@
     <Content Include="Placement.info">
       <SubType>Designer</SubType>
     </Content>
-    <Content Include="App.Config" />
     <Content Include="Views\ContentSync\Index.cshtml" />
     <Content Include="Views\ContentSync\Prepare.cshtml" />
     <Content Include="Views\Content-Layer.cshtml" />

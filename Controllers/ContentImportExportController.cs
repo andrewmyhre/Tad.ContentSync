@@ -1,19 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Web.Mvc;
 using System.Xml;
 using System.Xml.Linq;
-using ContentSync.Models;
-using ContentSync.Services;
-using Orchard;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
+using Tad.ContentSync.Models;
+using Tad.ContentSync.Services;
 
-namespace ContentSync.Controllers
+namespace Tad.ContentSync.Controllers
 {
     public class ContentImportExportController : Controller
     {

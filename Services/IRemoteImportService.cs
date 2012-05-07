@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using ContentSync.Models;
 using Orchard;
+using Tad.ContentSync.Models;
 
-namespace ContentSync.Services {
+namespace Tad.ContentSync.Services {
     public interface IRemoteImportService : IDependency {
         void Import(IEnumerable<ImportSyncAction> actions);
     }

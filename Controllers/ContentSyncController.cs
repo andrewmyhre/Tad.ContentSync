@@ -1,15 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Web.Mvc;
 using System.Xml.Linq;
-using ContentSync.Extensions;
-using ContentSync.Models;
-using ContentSync.Services;
 using Orchard;
 using Orchard.ContentManagement;
 using Orchard.ContentManagement.MetaData;
@@ -17,10 +13,11 @@ using Orchard.ContentManagement.MetaData.Models;
 using Orchard.Core.Common.Models;
 using Orchard.Core.Contents.Settings;
 using Orchard.DisplayManagement;
-using Orchard.DisplayManagement.Shapes;
 using Orchard.UI.Admin;
+using Tad.ContentSync.Extensions;
+using Tad.ContentSync.Services;
 
-namespace ContentSync.Controllers
+namespace Tad.ContentSync.Controllers
 {
     [Admin]
     public class ContentSyncController : Controller

@@ -1,7 +1,7 @@
 ﻿using Orchard.Localization;
 using Orchard.UI.Navigation;
 
-namespace Orchard.Blogs {
+namespace Tad.ContentSync {
     public class AdminMenu : INavigationProvider {
         public Localizer T { get; set; }
 
