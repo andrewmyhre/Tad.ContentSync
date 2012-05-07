@@ -3,36 +3,47 @@ using System.Linq;
 using ContentSync.Models;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
+using Orchard.Data;
 using Orchard.Logging;
 
 namespace ContentSync.Services {
     public class RemoteImportSerice : IRemoteImportService {
+        private readonly ITransactionManager _transactionManager;
         private readonly IContentManager _contentManager;
         public ILogger Logger { get; set; }
 
         public RemoteImportSerice(
+            ITransactionManager transactionManager,
             IContentManager contentManager,
             ILoggerFactory loggerFactory) {
+            _transactionManager = transactionManager;
             _contentManager = contentManager;
             Logger = loggerFactory.CreateLogger(this.GetType());
         }
 
         public void Import(IEnumerable<ImportSyncAction> actions) {
-            // process replacements
-            var importContentSession = new ImportContentSession(_contentManager);
-            foreach (var sync in actions.Where(a => a.Action == "Replace"))
-            {
-                Logger.Debug("{0}, {1}", sync.Action, sync.TargetId);
-                Replace(sync, importContentSession);
-            }
+            _transactionManager.Demand();
 
-            // import
-            importContentSession = new ImportContentSession(_contentManager);
-            foreach (var action in actions)
+            try
             {
-                ImportItem(action, importContentSession);
-            }
+                // process replacements
+                var importContentSession = new ImportContentSession(_contentManager);
+                foreach (var sync in actions.Where(a => a.Action == "Replace"))
+                {
+                    Logger.Debug("{0}, {1}", sync.Action, sync.TargetId);
+                    Replace(sync, importContentSession);
+                }
 
+                // import
+                importContentSession = new ImportContentSession(_contentManager);
+                foreach (var action in actions)
+                {
+                    ImportItem(action, importContentSession);
+                }
+            }
+            finally {
+                _transactionManager.Cancel();
+            }
         }
 
         private void ImportItem(ImportSyncAction action, ImportContentSession session) {

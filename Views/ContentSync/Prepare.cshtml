@@ -34,6 +34,7 @@
 @using (Html.BeginForm("Synchronise", "ContentSync", FormMethod.Post))
 {
     @Html.AntiForgeryTokenOrchard()
+    <input type="hidden" name="remote" value="@Request.QueryString["remote"]"/>
     <input type="submit" value="Synchronise Now"/>
     <fieldset class="contentItems bulk-items" style="font-size: 10pt">
         <table class="diff">

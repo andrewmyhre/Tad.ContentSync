@@ -27,6 +27,13 @@ namespace ContentSync.Extensions {
                 }
             }
 
+            var common1 = o1.As<CommonPart>();
+            var common2 = o2.As<CommonPart>();
+            if (common1.ModifiedUtc.HasValue && common2.ModifiedUtc.HasValue
+                        && common1.ModifiedUtc.Value > common2.ModifiedUtc.Value) {
+                return false;
+            }
+
             // compare xml elements
             var export1 = contentManager.Export(o1);
             var export2 = contentManager.Export(o2);

@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Web.Mvc;
 using System.Xml.Linq;
@@ -68,7 +70,7 @@ namespace ContentSync.Controllers
         }
 
         [HttpPost]
-        public ActionResult Synchronise() {
+        public ActionResult Synchronise(string remote) {
             StringBuilder result = new StringBuilder();
             ImportContentSession importContentSession = new ImportContentSession(_contentManager);
 
@@ -106,7 +108,34 @@ namespace ContentSync.Controllers
                 synchronisation.Element("ContentSync").Add(sync);
             }
 
-            return new ContentResult(){Content=synchronisation.ToString(), ContentType = "text/xml"};
+            // send to other server
+            string remoteImportEndpoint = remote + "/Admin/ContentImportExport/Import";
+            HttpWebRequest post = HttpWebRequest.Create(remoteImportEndpoint) as HttpWebRequest;
+            post.Method = "POST";
+            using (var requestStream = post.GetRequestStream())
+            using (var requestWriter = new StreamWriter(requestStream, Encoding.UTF8)){
+                requestWriter.Write(synchronisation.ToString());
+                requestWriter.Flush();
+            }
+
+            try {
+                using (var response = post.GetResponse() as HttpWebResponse) {
+                    if (response.StatusCode == HttpStatusCode.Accepted) {
+                        return RedirectToAction("Prepare", new {remote = remote});
+                    } else {
+                        return new ContentResult() {
+                            Content = "server returned status " + response.StatusCode
+                        };
+                    }
+                }
+            } catch (Exception ex) {
+                return new ContentResult()
+                {
+                    Content = ex.Message
+                };
+                
+            }
+
         }
 
         private IEnumerable<ContentTypeDefinition> GetCreatableTypes(bool andContainable)

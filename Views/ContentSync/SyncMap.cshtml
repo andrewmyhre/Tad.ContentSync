@@ -2,20 +2,20 @@
 
 <tr class="type-@Model.EqualityRank">
     <td class="left">
-        @if (Model.Local != null && Model.Local.DetailShape != null) {
+        @if (Model.Local != null) {
             @Display(Model.Local.Preview)
         }
-    @if (Model.Local != null) {
-        <a href="#" class="show-inspect">View</a>
-        <div style="display: none;" class="inspect-source">
-            <h3>Content</h3>
-            @Display(Model.Local.DetailShape)
-            <br/>
-            <h3>Xml</h3>
-            <pre>@Model.Local.ItemXml.ToString()</pre>
+        @if (Model.Local != null) {
+            <a href="#" class="show-inspect">View</a>
+            <div style="display: none;" class="inspect-source">
+                <h3>Content</h3>
+                @Display(Model.Local.DetailShape)
+                <br/>
+                <h3>Xml</h3>
+                <pre>@Model.Local.ItemXml.ToString()</pre>
             
-        </div>
-    }
+            </div>
+        }
     </td>
     <td class="middle">@if (Model.Balanced && Model.Equal)
                        {
