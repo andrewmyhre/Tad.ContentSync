@@ -1,0 +1,5 @@
+﻿@using (Html.BeginFormAntiForgeryPost(Url.Action("Prepare", "Admin"), FormMethod.Get)) {
+    <div><input type="text" name="remote" value="@Model" /> Remote Orchard instance url e.g: http://www.myorchardsite.com</div>
+    <br/>
+    <input type="submit" value="Compare with Remote"/>
+}

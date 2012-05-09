@@ -4,6 +4,7 @@ using Orchard;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
 using Orchard.DisplayManagement;
+using Orchard.DisplayManagement.Descriptors;
 
 namespace Tad.ContentSync
 {
@@ -14,6 +15,15 @@ namespace Tad.ContentSync
             if (item.Has<IdentityPart>()) {
                 Output.Write("testshape: " + item.As<IdentityPart>().Identifier);
             }
+        }
+    }
+
+    public class ShapeDescriptor : IShapeTableProvider
+    {
+        public void Discover(ShapeTableBuilder builder)
+        {
+            builder.Describe("Layer")
+                .OnDisplaying(a => a.Shape.Name("layer name goes here?"));
         }
     }
 }

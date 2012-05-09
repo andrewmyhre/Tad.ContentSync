@@ -1,0 +1,16 @@
+﻿@model Tad.ContentSync.Models.ContentSyncSettings
+           
+@{ Layout.Title = T("Set Synchronisation Settings").ToString(); }
+
+@using (Html.BeginFormAntiForgeryPost("UpdateSettings", FormMethod.Post))
+{
+    @Html.ValidationSummary()
+    <fieldset>
+        @Html.LabelFor(m => m.RemoteUrl)
+        <input id="remoteUrl" class="textMedium" name="remoteUrl" type="text" value="@(Model != null ? Model.RemoteUrl : "")"/>
+    </fieldset>
+    
+    <fieldset>
+    <button class="primaryAction" type="submit">@T("Update Settings")</button>
+    </fieldset>
+}

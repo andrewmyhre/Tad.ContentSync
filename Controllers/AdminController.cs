@@ -12,56 +12,122 @@ using Orchard.ContentManagement.MetaData;
 using Orchard.ContentManagement.MetaData.Models;
 using Orchard.Core.Common.Models;
 using Orchard.Core.Contents.Settings;
+using Orchard.Data;
 using Orchard.DisplayManagement;
+using Orchard.Localization;
 using Orchard.UI.Admin;
+using Orchard.UI.Notify;
 using Tad.ContentSync.Extensions;
+using Tad.ContentSync.Models;
 using Tad.ContentSync.Services;
 
 namespace Tad.ContentSync.Controllers
 {
-    [Admin]
-    public class ContentSyncController : Controller
+    public class AdminController : Controller
     {
         private readonly IContentManager _contentManager;
         private readonly IOrchardServices _services;
         private readonly IShapeFactory _shapeFactory;
         private readonly IContentDefinitionManager _contentDefinitionManager;
-        private readonly IRemoteSyncService _remoteSyncService;
+        private readonly IRemoteContentFetchService _remoteContentFetchService;
+        private readonly ISynchronisationMapFactory _synchronisationMapFactory;
+        private readonly IRepository<ContentSyncSettings> _contentSyncSettingsRepository;
 
-        public ContentSyncController(IContentManager contentManager,
+        public AdminController(IContentManager contentManager,
             IOrchardServices services,
             IShapeFactory shapeFactory,
             IContentDefinitionManager contentDefinitionManager,
-            IRemoteSyncService remoteSyncService) {
+            IRemoteContentFetchService remoteContentFetchService,
+            ISynchronisationMapFactory synchronisationMapFactory,
+            IRepository<ContentSyncSettings> contentSyncSettingsRepository) {
             _contentManager = contentManager;
             _services = services;
             _shapeFactory = shapeFactory;
             _contentDefinitionManager = contentDefinitionManager;
-            _remoteSyncService = remoteSyncService;
-        }
+            _remoteContentFetchService = remoteContentFetchService;
+            _synchronisationMapFactory = synchronisationMapFactory;
+            _contentSyncSettingsRepository = contentSyncSettingsRepository;
+            }
 
         public ActionResult Index() {
-            return View();
+
+            return View(Session["contentsync.remoteurl"] as string);
         }
 
-        public ActionResult Prepare(string remote) {
+        public ActionResult Prepare(string remote, string filter) {
+
+            if (string.IsNullOrWhiteSpace(remote))
+            {
+                var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+                if (settings == null
+                    || string.IsNullOrWhiteSpace(settings.RemoteUrl))
+                {
+
+                    _services.Notifier.Add(NotifyType.Warning,
+                                           new LocalizedString("You need to set a remote Orchard instance url"));
+                    return RedirectToAction("Settings");
+
+                }
+                remote = settings.RemoteUrl;
+            }
+
+            if (string.IsNullOrWhiteSpace(remote))
+            {
+                remote = Session["contentsync.remoteurl"] as string;
+            }
+
+            // get remote content
+            List<ContentItem> remoteContent = null;
+            try
+            {
+                remoteContent = _remoteContentFetchService.Fetch(new Uri(remote))
+                    .Where(rci => rci.Has<IdentityPart>())
+                    .ToList();
+            } catch (Exception ex)
+            {
+                _services.Notifier.Add(NotifyType.Error, 
+                    new LocalizedString(ex.Message));
+                return RedirectToAction("Settings");
+            }
+
             // get localcontent
             var localContent = _contentManager
                 .Query(VersionOptions.Latest)
                 .Join<IdentityPartRecord>()
                 .List();
 
-            // get remote content
-            var remoteContent = _remoteSyncService.Fetch(new Uri(remote))
-                .Where(rci => rci.Has<IdentityPart>())
-                .ToList();
 
             _contentManager.Clear();
 
+            IEnumerable<ContentSyncMap> mappings = null;
 
-
-            var mappings = _remoteSyncService.GenerateSynchronisationMappings(localContent, remoteContent)
-                .OrderByDescending(m=>m.EqualityRank);
+            switch(filter)
+            {
+                case "same":
+                mappings = _synchronisationMapFactory.BuildSynchronisationMap(localContent, remoteContent)
+                .Where(m=>m.EqualityRank==0);
+                    break;
+                case "different":
+                    mappings = _synchronisationMapFactory.BuildSynchronisationMap(localContent, remoteContent)
+                    .Where(m=>m.EqualityRank==1);
+                    break;
+                case "mismatch":
+                    mappings = _synchronisationMapFactory.BuildSynchronisationMap(localContent, remoteContent)
+                    .Where(m=>m.EqualityRank==2);
+                    break;
+                case "localonly":
+                    mappings = _synchronisationMapFactory.BuildSynchronisationMap(localContent, remoteContent)
+                    .Where(m=>!m.Balanced && m.Local != null);
+                    break;
+                case "remoteonly":
+                    mappings = _synchronisationMapFactory.BuildSynchronisationMap(localContent, remoteContent)
+                    .Where(m=>!m.Balanced && m.Remote != null);
+                    break;
+                default:
+                    mappings = _synchronisationMapFactory.BuildSynchronisationMap(localContent, remoteContent)
+                    .OrderByDescending(m=>m.EqualityRank);
+                    break;
+            }
 
             return View(mappings);
         }
@@ -133,6 +199,33 @@ namespace Tad.ContentSync.Controllers
                 
             }
 
+        }
+
+        public ActionResult Settings()
+        {
+            var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+
+            return View(settings);
+        }
+
+        [HttpPost]
+        public ActionResult UpdateSettings(string remoteUrl)
+        {
+            ContentSyncSettings settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+            if (settings == null)
+            {
+                settings = new ContentSyncSettings() {RemoteUrl = remoteUrl};
+                _contentSyncSettingsRepository.Create(settings);
+            } else
+            {
+                settings.RemoteUrl = remoteUrl;
+                _contentSyncSettingsRepository.Update(settings);
+            }
+            _contentSyncSettingsRepository.Flush();
+            
+            _services.Notifier.Add(NotifyType.Information, new LocalizedString("Settings updated"));
+
+            return RedirectToAction("Settings");
         }
 
         private IEnumerable<ContentTypeDefinition> GetCreatableTypes(bool andContainable)

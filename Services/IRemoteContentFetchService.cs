@@ -6,8 +6,7 @@ using Tad.ContentSync.Models;
 
 namespace Tad.ContentSync.Services
 {
-    public interface IRemoteSyncService: IDependency {
+    public interface IRemoteContentFetchService: IDependency {
         IEnumerable<ContentItem> Fetch(Uri remoteInstanceRoot);
-        IEnumerable<ContentSyncMap> GenerateSynchronisationMappings(IEnumerable<ContentItem> localContent, IEnumerable<ContentItem> remoteContents);
     }
 }

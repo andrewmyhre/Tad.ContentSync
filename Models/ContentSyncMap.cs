@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace Tad.ContentSync.Models
 {
@@ -15,9 +16,12 @@ namespace Tad.ContentSync.Models
         public int EqualityRank { get {
             if (Balanced && Equal)
                 return 0;
-            if (Balanced)
+            else if (Balanced)
                 return 1;
-            return 2;
+            else if (Similar != null && Similar.Count() > 0)
+                return 2;
+
+            return 3;
         }}
 
     }
