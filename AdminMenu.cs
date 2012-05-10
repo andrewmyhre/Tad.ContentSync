@@ -17,7 +17,7 @@ namespace Tad.ContentSync {
                         .LinkToFirstChild(true)
                         .Add(child=>child.Caption(T("All Content"))
                                 .Position("0")
-                                .Action("Prepare", "Admin", new {area = "Tad.ContentSync"})
+                                .Action("Prepare", "Admin", new {area = "Tad.ContentSync", filter="all"})
                                 .LocalNav())
                         .Add(child=>child.Caption(T("Same"))
                                 .Position("1")

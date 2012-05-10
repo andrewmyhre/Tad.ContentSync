@@ -10,6 +10,7 @@ namespace Tad.ContentSync.Models
         public ContentItemSyncInfo Remote { get; set; }
         public bool Balanced { get { return Local != null && Remote != null; } }
         public bool Equal { get; set; }
+        public string ContentType { get; set; }
 
         public IEnumerable<ContentItemSyncInfo> Similar { get; set; }
 

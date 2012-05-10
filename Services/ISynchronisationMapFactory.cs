@@ -7,6 +7,6 @@ namespace Tad.ContentSync.Services
 {
     public interface ISynchronisationMapFactory : IDependency
     {
-        IEnumerable<ContentSyncMap> BuildSynchronisationMap(IEnumerable<ContentItem> localContent, IEnumerable<ContentItem> remoteContents);
+        IEnumerable<ContentSyncMap> BuildSynchronisationMap(IEnumerable<ContentItem> localContent, List<RemoteContentItem> remoteContents);
     }
 }

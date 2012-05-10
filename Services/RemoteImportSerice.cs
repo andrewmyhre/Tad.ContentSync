@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Orchard.ContentManagement;
@@ -23,6 +24,7 @@ namespace Tad.ContentSync.Services {
 
         public void Import(IEnumerable<ImportSyncAction> actions) {
             _transactionManager.Demand();
+            Logger.Debug("Beginning import");
 
             try
             {
@@ -39,10 +41,16 @@ namespace Tad.ContentSync.Services {
                 foreach (var action in actions)
                 {
                     ImportItem(action, importContentSession);
+                    Logger.Debug("Imported " + action.Step.Name);
                 }
             }
-            finally {
+            catch (Exception ex)
+            {
                 _transactionManager.Cancel();
+                throw;
+            }
+            finally {
+                
             }
         }
 

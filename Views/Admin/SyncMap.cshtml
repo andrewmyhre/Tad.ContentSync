@@ -2,70 +2,82 @@
 
 <tr class="type-@Model.EqualityRank">
     <td class="left">
-        @if (Model.Local != null) {
+        @if (Model.Local != null)
+        {
             @Display(Model.Local.Preview)
         }
-        @if (Model.Local != null) {
-            <a href="#" class="show-inspect">View</a>
-            <div style="display: none;" class="inspect-source">
-                <h3>Content</h3>
-                @Display(Model.Local.DetailShape)
-                <br/>
-                <h3>Xml</h3>
-                <pre>@Model.Local.ItemXml.ToString()</pre>
-            
+        @if (Model.Local != null)
+        {
+            if (Model.Remote == null && (Model.Similar == null || Model.Similar.Count() == 0))
+            {
+                <a href="#" class="show-inspect left">View</a>
+            }
+            <div style="display: none;" class="inspection left" id="@Model.Local.ContentItem.Id"  data-previewurl="@(Model.Local.PreviewUrl)">
+                <div class="display">
+                    @Display(Model.Local.DetailShape)
+                </div>
+                <div class="xml">@Html.Raw(Model.Local.ForDiff())</div>
             </div>
         }
     </td>
-    <td class="middle">@if (Model.Balanced && Model.Equal)
-                       {
-                           <text>Same on both</text>
-                       }
-                       else if (Model.Balanced && !Model.Equal)
-                       {
-                           if (Model.Remote != null)
-                           {
-                               <text>Different on remote</text><br/>
-                               <select name="action:@Model.Identifier">
-                                   <option value="ignore">Ignore</option>
-                                   <option value="push:@Model.Remote.DetailShape.Identifier">Update Remote</option>
-                               </select>
-                           }
-                       }
-                       else if (!Model.Balanced)
-                       {
-                           if (Model.Remote == null
-                               && Model.Similar != null
-                               && Model.Similar.Count() > 0)
-                           {
-                               <text>Similar content with mismatched IDs</text><br/>
-                               <select name="action:@Model.Identifier">
-                                   <option value="ignore">Ignore</option>
-                                   <option value="push:null">Create on Remote</option>
-                                   @foreach (var similar in Model.Similar)
-                                   {
-                                       <option value="replace:@similar.DetailShape.Identifier()">Replace remote @Display(similar.SummaryShape)</option>
-                                   }
-                               </select>
+    <td class="middle"><strong>@Model.ContentType&nbsp;</strong>
+        @if (Model.Balanced && Model.Equal)
+        {
+                  <text>Same on both</text>
+        }
+        else if (Model.Balanced && !Model.Equal)
+        {
+            if (Model.Remote != null)
+            {
+                <select name="action:@Model.Identifier">
+                          <option value="ignore">Ignore</option>
+                          <option value="push:@Model.Remote.DetailShape.Identifier">Update Remote</option>
+                      </select>
+            }
+        }
+        else if (!Model.Balanced)
+        {
+            if (Model.Remote == null
+                && Model.Similar != null
+                && Model.Similar.Count() > 0)
+            {
+                      <text>Similar</text>
+                      <select name="action:@Model.Identifier">
+                          <option value="ignore">Ignore</option>
+                          <option value="push:null">Create on Remote</option>
+                          @foreach (var similar in Model.Similar)
+                          {
+                              <option value="replace:@similar.DetailShape.Identifier()">Replace remote @Display(similar.SummaryShape)</option>
+                          }
+                      </select>
 
-                           }
-                           else
-                           {
-                               if (Model.Remote == null && Model.Local != null)
-                               {
+            }
+            else
+            {
+                if (Model.Remote == null && Model.Local != null)
+                {
                        
-                                   <text>Local only</text><br/>
-                                   <select name="action:@Model.Identifier">
-                                       <option value="ignore">Ignore</option>
-                                       <option value="push:null">Create on Remote</option>
-                                   </select>
-                               }
-                               else if (Model.Remote != null && Model.Local == null)
-                               {
-                                   <text>Remote only</text>
-                               }
-                           }
-                       }</td>
+                          <select name="action:@Model.Identifier">
+                              <option value="ignore">Ignore</option>
+                              <option value="push:null">Create on Remote</option>
+                          </select>
+                }
+            }
+        }
+        
+        @if (Model.Balanced)
+                {
+                    <a href="#" class="show-inspect right">Compare</a>
+                    <div style="display: none;" class="inspection r" id="@Model.Remote.Identifier"
+                         data-localid="@(Model.Local != null ? Model.Local.ContentItem.Id : 0)" data-previewurl="@(Model.Remote.PreviewUrl)">
+                        <div class="display">
+                            @Display(Model.Remote.DetailShape)
+                        </div>
+                        <div class="xml">@Html.Raw(Model.Remote.ForDiff())</div>
+                    </div>
+                }
+
+    </td>
     <td class="right">
         @if (Model.Remote != null)
         {
@@ -73,21 +85,23 @@
         }
         else if (Model.Similar != null)
         {
-            foreach (var similar in Model.Similar)
+            <ul>
+            @foreach (var similar in Model.Similar)
             {
-                @Display(similar.Preview)
+                <li>
+                    @Display(similar.Preview)
+                    <a href="#" class="show-inspect right">Compare</a>
+                    <div style="display: none;" class="inspection right" id="@similar.Identifier"
+                        data-localid="@(Model.Local != null ? Model.Local.ContentItem.Id : 0)" data-previewurl="@(similar.PreviewUrl)">
+                        <div class="display">
+                            @Display(similar.DetailShape)
+                        </div>
+                        <div class="xml">@Html.Raw(similar.ForDiff())</div>
+                    </div>
+                </li>
             }
+            </ul>
         }
-    @if (Model.Remote != null)
-    {
-        <a href="#" class="show-inspect">View</a>
-        <div style="display: none;" class="inspect-source">
-            <h3>Content</h3>
-            @Display(Model.Remote.DetailShape)
-            <h3>Xml</h3>
-            <pre>@Model.Remote.ItemXml.ToString()</pre>
-        </div>
-    }
 
     </td>
 </tr>

@@ -1,12 +1,17 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Web.Mvc;
 using System.Xml;
 using System.Xml.Linq;
+using Orchard;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
+using Orchard.Localization;
+using Orchard.Logging;
+using Orchard.UI.Notify;
 using Tad.ContentSync.Models;
 using Tad.ContentSync.Services;
 
@@ -16,17 +21,23 @@ namespace Tad.ContentSync.Controllers
     {
         private readonly IContentManager _contentManager;
         private readonly IRemoteImportService _remoteImportService;
+        private readonly IOrchardServices _orchardServices;
+        public readonly ILogger Logger = null;
 
         public ContentImportExportController(
             IContentManager contentManager,
-            IRemoteImportService remoteImportService) {
+            IRemoteImportService remoteImportService,
+            ILoggerFactory loggerfactory,
+            IOrchardServices orchardServices) {
             _contentManager = contentManager;
             _remoteImportService = remoteImportService;
+            _orchardServices = orchardServices;
+            Logger = loggerfactory.CreateLogger(typeof(ContentImportExportController));
         }
 
         public ActionResult Export() {
             var content = _contentManager
-                .Query(VersionOptions.Latest)
+                .Query(VersionOptions.Published)
                 .Join<IdentityPartRecord>()
                 .List();
 
@@ -54,6 +65,9 @@ namespace Tad.ContentSync.Controllers
 
     [HttpPost]
         public ActionResult Import() {
+
+        Logger.Debug("Import requested by " + Request.UserHostAddress);
+
         string requestContent = "";
         using (StreamReader reader = new StreamReader(Request.InputStream, Request.ContentEncoding)) {
             requestContent = reader.ReadToEnd();
@@ -64,9 +78,16 @@ namespace Tad.ContentSync.Controllers
             var syncSteps = xml.Element("ContentSync").Elements("Sync")
                 .Select(e => ImportSyncAction.Parse(e));
 
-            _remoteImportService.Import(syncSteps);
+            try
+            {
+                _remoteImportService.Import(syncSteps);
+            } catch (Exception ex)
+            {
+                return new HttpStatusCodeResult((int)HttpStatusCode.BadRequest, ex.Message);
+            }
 
-            return new HttpStatusCodeResult((int)HttpStatusCode.Accepted);
+
+        return new HttpStatusCodeResult((int)HttpStatusCode.Accepted);
         }
 
         public string TestImportXml()

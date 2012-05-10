@@ -28,7 +28,7 @@ namespace Tad.ContentSync.Services
             _signals = signals;
         }
 
-        public IEnumerable<ContentSyncMap> BuildSynchronisationMap(IEnumerable<ContentItem> localContent, IEnumerable<ContentItem> remoteContents)
+        public IEnumerable<ContentSyncMap> BuildSynchronisationMap(IEnumerable<ContentItem> localContent, List<RemoteContentItem> remoteContents)
         {
             return _cacheManager.Get<string, IEnumerable<ContentSyncMap>>(MapCacheKey,
                 ctx =>
@@ -36,7 +36,7 @@ namespace Tad.ContentSync.Services
                         ctx.Monitor(_signals.When(MapInvalidationTrigger));
 
                         _orchardServices.ContentManager.Clear();
-                        List<ContentItem> remoteContent = new List<ContentItem>(remoteContents);
+                        List<RemoteContentItem> remoteContent = new List<RemoteContentItem>(remoteContents);
                         dynamic Shape = _shapeFactory;
 
                         //var list = DetailShape.List();
@@ -52,7 +52,7 @@ namespace Tad.ContentSync.Services
                             if (!ContentSync.SyncableContentTypes.Contains(localItem.ContentType))
                                 continue;
 
-                            ContentSyncMap map = new ContentSyncMap();
+                            ContentSyncMap map = new ContentSyncMap(){ContentType=localItem.ContentType};
                             map.Local = new ContentItemSyncInfo(localItem,
                                                                 _orchardServices.ContentManager.BuildDisplay(localItem,
                                                                                                              "Detail"),
@@ -69,15 +69,13 @@ namespace Tad.ContentSync.Services
                                 var localIdentifier =
                                     _orchardServices.ContentManager.GetItemMetadata(localItem).Identity.ToString();
                                 var remoteIdentifier =
-                                    _orchardServices.ContentManager.GetItemMetadata(remoteItem).Identity.ToString();
+                                    _orchardServices.ContentManager.GetItemMetadata(remoteItem.ContentItem).Identity.ToString();
                                 if (localIdentifier.Equals(remoteIdentifier))
                                 {
-                                    var detailShape = _orchardServices.ContentManager.BuildDisplay(remoteItem, "Detail");
-                                    var summaryShape = _orchardServices.ContentManager.BuildDisplay(remoteItem,
+                                    var detailShape = _orchardServices.ContentManager.BuildDisplay(remoteItem.ContentItem, "Detail");
+                                    var summaryShape = _orchardServices.ContentManager.BuildDisplay(remoteItem.ContentItem,
                                                                                                     "Summary");
-                                    map.Remote = new ContentItemSyncInfo(remoteItem, detailShape, summaryShape,
-                                                                         _orchardServices.ContentManager.Export(
-                                                                             remoteItem));
+                                    map.Remote = new ContentItemSyncInfo(remoteItem.ContentItem, detailShape, summaryShape, remoteItem.Xml);
                                     remoteContent.Remove(remoteItem);
                                     map.Equal = localItem.IsEqualTo(remoteItem, _orchardServices.ContentManager);
 
@@ -87,22 +85,21 @@ namespace Tad.ContentSync.Services
 
                             if (map.Remote == null)
                             {
-                                map.Similar = remoteContent.Where(r => map.Local.ContentItem.SimilarTo(r))
+                                map.Similar = remoteContent.Where(r =>
+                                    new ContentItemComparer(map.Local.ContentItem, _orchardServices.ContentManager).SimilarityTo(r.ContentItem) != 0)
                                     .Select(r =>
                                                 {
                                                     dynamic detailShape = _orchardServices.ContentManager.BuildDisplay(
-                                                        r, "Detail")
+                                                        r.ContentItem, "Detail")
                                                         .Identifier(
-                                                            _orchardServices.ContentManager.GetItemMetadata(r).Identity.
+                                                            _orchardServices.ContentManager.GetItemMetadata(r.ContentItem).Identity.
                                                                 ToString());
                                                     dynamic summaryShape = _orchardServices.ContentManager.BuildDisplay(
-                                                        r, "Summary")
+                                                        r.ContentItem, "Summary")
                                                         .Identifier(
-                                                            _orchardServices.ContentManager.GetItemMetadata(r).Identity.
+                                                            _orchardServices.ContentManager.GetItemMetadata(r.ContentItem).Identity.
                                                                 ToString());
-                                                    return new ContentItemSyncInfo(r, detailShape, summaryShape,
-                                                                                   _orchardServices.ContentManager.
-                                                                                       Export(r));
+                                                    return new ContentItemSyncInfo(r.ContentItem, detailShape, summaryShape,r.Xml);
                                                 }).ToList();
                             }
 
@@ -113,16 +110,16 @@ namespace Tad.ContentSync.Services
                         {
                             mappings.Add(new ContentSyncMap()
                                              {
-                                                 Remote = new ContentItemSyncInfo(remoteContentItem,
+                                                 ContentType=remoteContentItem.ContentItem.ContentType,
+                                                 Remote = new ContentItemSyncInfo(remoteContentItem.ContentItem,
                                                                                   _orchardServices.ContentManager.
-                                                                                      BuildDisplay(remoteContentItem,
+                                                                                      BuildDisplay(remoteContentItem.ContentItem,
                                                                                                    "Detail"),
                                                                                   _orchardServices.ContentManager.
-                                                                                      BuildDisplay(remoteContentItem,
+                                                                                      BuildDisplay(remoteContentItem.ContentItem,
                                                                                                    "Summary"),
-                                                                                  _orchardServices.ContentManager.Export
-                                                                                      (remoteContentItem)),
-                                                 Identifier = remoteContentItem.As<IdentityPart>().Identifier
+                                                                                  remoteContentItem.Xml),
+                                                 Identifier = remoteContentItem.ContentItem.As<IdentityPart>().Identifier
                                              });
                         }
 

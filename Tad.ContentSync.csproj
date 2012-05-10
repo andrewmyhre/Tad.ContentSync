@@ -59,7 +59,11 @@
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Scripts\pd.js" />
+    <Content Include="Scripts\prettydiff.js" />
+    <Content Include="Scripts\SyncDashboard.js" />
     <Content Include="Scripts\jquery-ui-1.8.20.js" />
+    <Content Include="Scripts\jsdiff.js" />
     <Content Include="Styles\images\ui-bg_diagonals-thick_18_b81900_40x40.png" />
     <Content Include="Styles\images\ui-bg_diagonals-thick_20_666666_40x40.png" />
     <Content Include="Styles\images\ui-bg_flat_10_000000_40x100.png" />
@@ -97,12 +101,15 @@
     <Compile Include="Controllers\ContentImportExportController.cs" />
     <Compile Include="Controllers\AdminController.cs" />
     <Compile Include="Controllers\IdentitySyncController.cs" />
+    <Compile Include="Controllers\PreviewController.cs" />
+    <Compile Include="Extensions\ContentItemComparer.cs" />
     <Compile Include="Extensions\ContentItemExtensions.cs" />
     <Compile Include="Extensions\Extensions.cs" />
     <Compile Include="Migrations.cs" />
     <Compile Include="Models\ContentItemSyncInfo.cs" />
     <Compile Include="Models\ContentSyncMap.cs" />
     <Compile Include="Models\ContentSyncSettings.cs" />
+    <Compile Include="Models\ContentSyncViewModel.cs" />
     <Compile Include="Models\ImportSyncAction.cs" />
     <Compile Include="ResourcesManifest.cs" />
     <Compile Include="Routes.cs" />
@@ -131,9 +138,12 @@
     <Content Include="Views\Admin\SyncMap.cshtml" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Views\Admin\Settings.cshtml" />
-    <None Include="Views\IdentitySync\Diff.cshtml" />
-    <None Include="Views\IdentitySync\Index.cshtml" />
+    <Content Include="Views\Admin\Settings.cshtml" />
+    <Content Include="Views\IdentitySync\Diff.cshtml" />
+    <Content Include="Views\IdentitySync\Index.cshtml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Views\Preview\Index.cshtml" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications\Microsoft.WebApplication.targets" />

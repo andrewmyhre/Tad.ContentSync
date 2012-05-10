@@ -5,6 +5,7 @@ using System.Text;
 using System.Web.Mvc;
 using Orchard.ContentManagement;
 using Orchard.Core.Common.Models;
+using Orchard.DisplayManagement;
 using Tad.ContentSync.Services;
 
 namespace Tad.ContentSync.Controllers
@@ -35,7 +36,7 @@ namespace Tad.ContentSync.Controllers
         {
             // get remote content
             var remoteContent = _remoteContentFetchService.Fetch(new Uri(remote))
-                .Where(rci => rci.Has<IdentityPart>())
+                .Where(rci => rci.ContentItem.Has<IdentityPart>())
                 .ToList();
 
             // get localcontent

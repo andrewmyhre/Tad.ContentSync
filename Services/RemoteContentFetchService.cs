@@ -3,12 +3,21 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Xml.Linq;
 using Orchard;
 using Orchard.ContentManagement;
 using Orchard.ContentManagement.Handlers;
+using Orchard.Core.Common.Models;
+using Orchard.Recipes.Models;
 using Orchard.Recipes.Services;
 
 namespace Tad.ContentSync.Services {
+    public class RemoteContentItem
+    {
+        public ContentItem ContentItem { get; set; }
+        public XElement Xml { get; set; }
+    }
+
     public class RemoteContentFetchService : IRemoteContentFetchService {
         private readonly IRecipeParser _recipeParser;
         private readonly IOrchardServices _orchardServices;
@@ -24,10 +33,10 @@ namespace Tad.ContentSync.Services {
             _handlers = handlers;
         }
 
-        public IEnumerable<ContentItem> Fetch(Uri remoteInstanceRoot) {
+        public IEnumerable<RemoteContentItem> Fetch(Uri remoteInstanceRoot) {
             var remoteExportEndpoint = new Uri(remoteInstanceRoot + "/Admin/ContentImportExport/Export");
             string remoteXml = FetchRemoteExportXml(remoteExportEndpoint);
-            List<ContentItem> contentItems = new List<ContentItem>();
+            List<RemoteContentItem> remoteContentItems = new List<RemoteContentItem>();
 
             var recipe = _recipeParser.ParseRecipe(remoteXml);
             var importContentSession = new ImportContentSession(_orchardServices.ContentManager);
@@ -46,7 +55,6 @@ namespace Tad.ContentSync.Services {
                     var status = element.Attribute("Status");
 
                     var item = _orchardServices.ContentManager.New(element.Name.LocalName);
-
                     var context = new ImportContentContext(item, element, importContentSession);
 
                     foreach (var contentHandler in _handlers.Value)
@@ -59,13 +67,12 @@ namespace Tad.ContentSync.Services {
                         contentHandler.Imported(context);
                     }
 
-
-                    contentItems.Add(item);
+                    remoteContentItems.Add(new RemoteContentItem() { ContentItem = item, Xml = element });
                 }
             }
             _orchardServices.ContentManager.Clear();
 
-            return contentItems;
+            return remoteContentItems;
         }
 
         private string FetchRemoteExportXml(Uri remoteExportUrl) {

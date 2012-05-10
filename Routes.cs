@@ -12,6 +12,7 @@ namespace Tad.ContentSync
             return new RouteDescriptor[] {
                 SimpleRoute("Admin/ContentSync/Diff/{filter}", new RouteValueDictionary{{"area","Tad.ContentSync"}, {"controller","Admin"}, {"action", "Prepare"}, {"filter","all"}}),
                 SimpleRoute("Admin/ContentSync/Diff", new RouteValueDictionary{{"area","Tad.ContentSync"}, {"controller","Admin"}, {"action", "Prepare"}}),
+                SimpleRoute("Admin/ContentSync/Preview/{identifier}", "Tad.ContentSync", "Preview", "Index"),
                 SimpleRoute("Admin/ContentSync/{action}", "Tad.ContentSync", "Admin", "Index"),
                 SimpleRoute("Admin/ContentImportExport/{action}", "Tad.ContentSync", "ContentImportExport", "Index"),
             };
