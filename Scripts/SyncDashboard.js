@@ -18,18 +18,19 @@
         } else if ($(element.target).hasClass('left')) {
             left = $(element.target).siblings('.inspection');
         }
+        var leftAvailable = left != null && left.length != 0;
+        var rightAvailable = right != null && right.length != 0;
 
-        if (left != null && right == null) {
+        if (leftAvailable && !rightAvailable) {
             diffLeft = left.children('div.xml').html();
             diffRight = diffLeft;
             $('#inspect .preview-left').attr("src", "/en/Admin/ContentSync/Preview/" + left.attr('id'));
-        } else if (left == null && right != null) {
+        } else if (!leftAvailable && rightAvailable) {
             diffRight = right.children('div.xml').html();
             diffLeft = diffRight;
             $('#inspect .preview-right').attr("src", "http://192.168.111.93/en/Admin/ContentSync/Preview/" + right.attr('id'));
         }
-        else if (left != null && left.length > 0
-            && right != null && right.length > 0) {
+        else if (leftAvailable && rightAvailable) {
             diffLeft = left.children('div.xml').html();
             diffRight = right.children('div.xml').html();
             $('#inspect .preview-left').attr("src", "/en/Admin/ContentSync/Preview/" + left.attr('id'));
@@ -40,7 +41,7 @@
         $('#inspect .diff-view').append(diff[0]);
 
         if (left != null && left.length > 0) {
-            
+
         }
 
         showPreview();

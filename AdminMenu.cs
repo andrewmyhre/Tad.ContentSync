@@ -27,7 +27,7 @@ namespace Tad.ContentSync {
                                 .Position("2")
                                 .Action("Prepare", "Admin", new { area = "Tad.ContentSync", filter = "different" })
                                 .LocalNav())
-                        .Add(child => child.Caption(T("Mismatched"))
+                        .Add(child => child.Caption(T("Similar"))
                                 .Position("3")
                                 .Action("Prepare", "Admin", new { area = "Tad.ContentSync", filter = "mismatch" })
                                 .LocalNav())

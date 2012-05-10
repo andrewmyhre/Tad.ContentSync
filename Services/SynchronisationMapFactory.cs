@@ -66,18 +66,13 @@ namespace Tad.ContentSync.Services
                             for (int i = 0; i < remoteContent.Count; i++)
                             {
                                 var remoteItem = remoteContent[i];
-                                var localIdentifier =
-                                    _orchardServices.ContentManager.GetItemMetadata(localItem).Identity.ToString();
-                                var remoteIdentifier =
-                                    _orchardServices.ContentManager.GetItemMetadata(remoteItem.ContentItem).Identity.ToString();
-                                if (localIdentifier.Equals(remoteIdentifier))
+                                if (localItem.SharesIdentifierWith(remoteItem.ContentItem))
                                 {
                                     var detailShape = _orchardServices.ContentManager.BuildDisplay(remoteItem.ContentItem, "Detail");
-                                    var summaryShape = _orchardServices.ContentManager.BuildDisplay(remoteItem.ContentItem,
-                                                                                                    "Summary");
+                                    var summaryShape = _orchardServices.ContentManager.BuildDisplay(remoteItem.ContentItem, "Summary");
                                     map.Remote = new ContentItemSyncInfo(remoteItem.ContentItem, detailShape, summaryShape, remoteItem.Xml);
                                     remoteContent.Remove(remoteItem);
-                                    map.Equal = localItem.IsEqualTo(remoteItem, _orchardServices.ContentManager);
+                                    map.Equal = localItem.IsEqualTo(remoteItem);
 
                                     break;
                                 }
