@@ -30,10 +30,7 @@ namespace Tad.ContentSync.Services
 
         public IEnumerable<ContentSyncMap> BuildSynchronisationMap(IEnumerable<ContentItem> localContent, List<RemoteContentItem> remoteContents)
         {
-            return _cacheManager.Get<string, IEnumerable<ContentSyncMap>>(MapCacheKey,
-                ctx =>
-                    {
-                        ctx.Monitor(_signals.When(MapInvalidationTrigger));
+                        //ctx.Monitor(_signals.When(MapInvalidationTrigger));
 
                         _orchardServices.ContentManager.Clear();
                         List<RemoteContentItem> remoteContent = new List<RemoteContentItem>(remoteContents);
@@ -119,7 +116,6 @@ namespace Tad.ContentSync.Services
                         }
 
                         return mappings;
-                    });
         }
     }
 }

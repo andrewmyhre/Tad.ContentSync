@@ -5,6 +5,6 @@ using Tad.ContentSync.Models;
 
 namespace Tad.ContentSync.Services {
     public interface IRemoteImportService : IDependency {
-        void Import(IEnumerable<ImportSyncAction> actions);
+        void Import(IEnumerable<ImportSyncAction> actions, bool rollback);
     }
 }

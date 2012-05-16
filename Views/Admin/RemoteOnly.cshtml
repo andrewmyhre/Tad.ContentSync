@@ -1,25 +1,26 @@
-﻿@using Tad.ContentSync.Models
+﻿@using Tad.ContentSync.Extensions
+@model IEnumerable<IGrouping<string, IGrouping<System.Xml.Linq.XElement, Tad.ContentSync.Comparers.ContentPair>>>
+
 @{
     Style.Require("jQueryUI_Orchard").AtHead();
     Script.Require("jQueryUI_Dialog").AtHead();
     Script.Require("SyncDashboard").AtHead();
     Script.Require("PrettyDiff").AtFoot();
 
-    Layout.Title("Synchronise content with " + Model.RemoteServerUrl);
+    Layout.Title("Synchronise content");
 }
 
-<script type="text/javascript">
-    $(document).ready(function () {
-        init('http://192.168.111.93/en');
-    })
-</script>
+<style>
+    ul.tree li { padding-left: 2em;}
+    
+</style>
 
 <style>
-    #inspect { background: #F3F4F5 url('images/adminNavBackground.gif') repeat-y top left;}
-    #inspect nav{ height: 20px;}
-    #inspect .preview-left,#inspect .preview-right,#inspect .diff-view{ position: relative;top: 30px;height: 100%;}
-    #inspect .preview-left{ float: left;width: 50%;}
-    #inspect .preview-right{ float: right;width: 50%;}
+    #diff-view { background: #F3F4F5 url('images/adminNavBackground.gif') repeat-y top left;}
+    #diff-view .preview-left,#diff-view .preview-right,#diff-view .diff-view{ position: relative;top: 30px;height: 100%;}
+    #diff-view .preview-left{ float: left;width: 50%;}
+    #diff-view .preview-right{ float: right;width: 50%;}
+    #diff-view #diff-synchronise { float: right;}
     a.show-inspect {color: blue;}
     
     table.diff tbody{font-family:'Courier New',Courier,'Lucida Console',monospace;font-size:1.1em}
@@ -54,7 +55,8 @@
 </style>
 
 
-<div id="inspect">
+<div id="diff-view">
+    <a href="#" id="diff-select-for-sync" class="button blue-button">Select This Content</a>
     <ul class="localmenu localmenu-local-admin" role="local-navigation">
         <li class="local-section-all-content selected first"><a href="#" class="show-preview">Preview</a></li>
         <li class="local-section-remote-only last middle"><a href="#" class="show-diff">Diff</a></li>
@@ -64,32 +66,33 @@
     <div class="diff-view"></div>
 </div>
 
+
 @using (Html.BeginForm("Synchronise", "Admin", FormMethod.Post))
 {
     @Html.AntiForgeryTokenOrchard()
-    <input type="hidden" name="remote" value="@Request.QueryString["remote"]"/>
-    <input type="hidden" name="filter" value="@Request.RequestContext.RouteData.Values["filter"]"/>
-    <button type="submit" style="float:right">Synchronise Now</button>
-    @*
-    <a class="button" href="@Url.Action("Refresh", "Admin", new { area = "Tad.ContentSync", filter = Request.RequestContext.RouteData.Values["filter"] })">Refresh remote impression</a> <em>Last generated @Model.GeneratedOn.ToString()</em>
-    *@
-    <fieldset class="contentItems bulk-items" style="font-size: 10pt">
-        <table class="export-diff">
-            <thead>
-                <tr>
-                    <th class="left">Local</th>
-                    <th class="middle">State</th>
-                    <th class="right">Remote</th>
-                </tr>
-            </thead>
-            <tbody>
-                
-            @foreach (var syncMap in Model.Mappings)
-            {
-                var model = syncMap as ContentSyncMap;
-                Html.RenderPartial("SyncMap", model);
-            }
-            </tbody>
-        </table>
-    </fieldset>
+    <input type="hidden" name="redirectAction" value="@Request.RequestContext.RouteData.Values["type"]"/>
+    <input type="hidden" name="direction" value="down"></input>
+    <button id="button-synchronise-down" type="submit" style="float:right">Synchronise DOWN</button>
+
+    <ul class="tree">
+        @foreach (var layer in Model)
+        {
+            <li>
+                <h2>@layer.Key</h2>
+                <ul>
+        
+                    @foreach (var set in layer)
+                    {
+                        var pair = set.First();
+                        <li id="@pair.Right.PartValue("IdentityPart", "Identifier")">
+                            <input type="checkbox" name="sync" id="::@pair.Right.PartValue("IdentityPart", "Identifier")" value="::@pair.Right.ContentIdentifier()"/>
+                            <label class="forcheckbox" for="::@pair.Right.PartValue("IdentityPart", "Identifier")">@pair.Right.DisplayLabel()</label>
+                            <a href="#" class="link-show-diff">View</a>
+                            <div class="source left">@Html.Raw(pair.Right.Entitize())</div>
+                        </li>
+                    }
+                </ul>
+            </li>
+        }
+    </ul>
 }

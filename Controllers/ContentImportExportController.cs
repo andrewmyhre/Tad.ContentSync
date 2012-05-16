@@ -38,7 +38,6 @@ namespace Tad.ContentSync.Controllers
         public ActionResult Export() {
             var content = _contentManager
                 .Query(VersionOptions.Published)
-                .Join<IdentityPartRecord>()
                 .List();
 
             XDocument export = new XDocument();
@@ -67,8 +66,14 @@ namespace Tad.ContentSync.Controllers
         public ActionResult Import() {
 
         Logger.Debug("Import requested by " + Request.UserHostAddress);
+        bool rollback = false;
 
         string requestContent = "";
+
+        if (Request.Headers.Get("Transaction-Rollback") != null)
+        {
+            bool.TryParse(Request.Headers.Get("Transaction-Rollback"), out rollback);
+        }
         using (StreamReader reader = new StreamReader(Request.InputStream, Request.ContentEncoding)) {
             requestContent = reader.ReadToEnd();
         }
@@ -80,9 +85,10 @@ namespace Tad.ContentSync.Controllers
 
             try
             {
-                _remoteImportService.Import(syncSteps);
+                _remoteImportService.Import(syncSteps, rollback);
             } catch (Exception ex)
             {
+                Logger.Error("There was an error while importing", ex);
                 return new HttpStatusCodeResult((int)HttpStatusCode.BadRequest, ex.Message);
             }
 

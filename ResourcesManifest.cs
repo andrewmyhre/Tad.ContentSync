@@ -10,7 +10,7 @@ namespace Tad.ContentSync
             manifest.DefineScript("jsdiff").SetUrl("jsdiff.js");
             manifest.DefineScript("PrettyDiff-Api").SetUrl("pd.js");
             manifest.DefineScript("PrettyDiff").SetUrl("prettydiff.js").SetDependencies("PrettyDiff-Api");
-            manifest.DefineScript("SyncDashboard").SetUrl("SyncDashboard.js").SetDependencies("jQuery");
+            manifest.DefineScript("SyncDashboard").SetUrl("sync.js").SetDependencies("jQuery");
             manifest.DefineStyle("jquery-ui").SetUrl("jquery-ui.1.8.20.custom.css");
         }
     }

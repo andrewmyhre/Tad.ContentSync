@@ -1,0 +1,99 @@
+﻿@using Tad.ContentSync.Extensions
+@model IEnumerable<IGrouping<string, IGrouping<System.Xml.Linq.XElement,Tad.ContentSync.Comparers.ContentPair>>>
+
+@{
+    Style.Require("jQueryUI_Orchard").AtHead();
+    Script.Require("jQueryUI_Dialog").AtHead();
+    Script.Require("SyncDashboard").AtHead();
+    Script.Require("PrettyDiff").AtFoot();
+
+    Layout.Title("Synchronise content");
+}
+
+<style>
+    ul.tree li { padding-left: 2em;}
+    
+</style>
+
+<style>
+    #diff-view { background: #F3F4F5 url('images/adminNavBackground.gif') repeat-y top left;}
+    #diff-view .preview-left,#diff-view .preview-right,#diff-view .diff-view{ position: relative;top: 30px;height: 100%;}
+    #diff-view .preview-left{ float: left;width: 50%;}
+    #diff-view .preview-right{ float: right;width: 50%;}
+    #diff-view #diff-synchronise { float: right;}
+    a.show-inspect {color: blue;}
+    
+    table.diff tbody{font-family:'Courier New',Courier,'Lucida Console',monospace;font-size:1.1em}
+    table.diff tbody th{background:#eed;border:.1em solid #bbc;color:#886;font-family:verdana,arial,'Bitstream Vera Sans',helvetica,sans-serif;font-weight:normal;padding:.5em .6em 0 2.4em;text-align:right;vertical-align:top}
+    table.diff thead{background:#efefef;border-bottom:.1em solid #bbc;font-family:Verdana;text-align:left}
+    table.diff thead th{border-left:.1em solid #bbc;padding-left:2em}
+    table.diff tbody td{letter-spacing:.1em;padding:.5em .5em 0;vertical-align:top;white-space:pre}
+    table.diff tbody td em{font-style:normal;margin:0 -.09em;padding:.05em 0}
+    table.diff .empty{background-color:#ddd}
+    table.diff .replace{background-color:#fd8}
+    table.diff .replace em{background-color:#ffd;border:.1em solid #963;color:#630}
+    table.diff .delete{background-color:#e99}
+    table.diff .delete em{background-color:#fdd;border:.1em solid #700;color:#600}
+    table.diff .equal{background-color:#fff}
+    table.diff .skip{background-color:#efefef;border:.1em solid #aaa;border-right:.1em solid #bbc}
+    table.diff .insert{background-color:#9e9}
+    table.diff .insert em{background-color:#efc;border:1px solid #070;color:#050}
+    table.diff th.author{background:#efefef;border-top:.1em solid #bbc;padding:.4em;text-align:right}
+    
+    contentItems a { font-size: 10pt;}
+    div.map-container{ float: left;width: 100%;margin-bottom: 4px;}
+    table.export-diff{ width: 100%;}
+    table.export-diff tbody tr:hover { background-color: deepskyblue !important;}
+    table.export-diff tbody tr td { margin-bottom: 3px !important;}
+    tr.type-0 { background-color:greenyellow;}
+    tr.type-1 { background-color: #FEA;}
+    tr.type-2 { background-color: #FEE;}
+    table.export-diff td.left{width: 30%;text-align: left;}
+    table.export-diff td.middle{ text-align: center;}
+    table.export-diff td.right{width: 30%;text-align: right;}
+    th{ font-weight: bold;font-size: 1.4em;text-align: center;}
+</style>
+
+
+<div id="diff-view">
+    <a href="#" id="diff-select-for-sync" class="button blue-button">Select This Content</a>
+    <ul class="localmenu localmenu-local-admin" role="local-navigation">
+        <li class="local-section-all-content selected first"><a href="#" class="show-preview">Preview</a></li>
+        <li class="local-section-remote-only last middle"><a href="#" class="show-diff">Diff</a></li>
+    </ul>
+    <iframe class="preview-left"></iframe>
+    <iframe class="preview-right"></iframe>
+    <div class="diff-view"></div>
+</div>
+
+
+@using (Html.BeginForm("Synchronise", "Admin", FormMethod.Post))
+{
+    @Html.AntiForgeryTokenOrchard()
+    <input type="hidden" name="redirectAction" value="@Request.RequestContext.RouteData.Values["type"]"/>
+    <input type="hidden" name="direction"></input>
+    <button id="button-synchronise-up" type="submit" style="float:right">Synchronise UP</button>
+    <button id="button-synchronise-down" type="submit" style="float:right">Synchronise DOWN</button>
+
+    <ul class="tree">
+        @foreach (var layer in Model)
+        {
+            <li>
+                <h2>@layer.Key</h2>
+                <ul>
+                        @foreach (var set in layer)
+                        {
+                            var pair = set.First();
+                            <li id="@pair.Left.PartValue("IdentityPart", "Identifier")">
+                                <input type="checkbox" name="sync" id="@pair.Left.PartValue("IdentityPart", "Identifier")::@pair.Right.PartValue("IdentityPart", "Identifier")" value="@pair.Left.ContentIdentifier()::@pair.Right.ContentIdentifier()"/>
+                                <label class="forcheckbox" for="@pair.Left.PartValue("IdentityPart", "Identifier")::@pair.Right.PartValue("IdentityPart", "Identifier")">@pair.Left.DisplayLabel()</label>
+                                <a href="#" class="link-show-diff">Diff</a>
+                                <div class="source right" id="@pair.Right.PartValue("IdentityPart", "Identifier")">@Html.Raw(pair.Right.Entitize())</div>
+                                <div class="source left">@Html.Raw(pair.Left.Entitize())</div>
+                            </li>
+                        }
+                </ul>
+            </li>
+        }
+    </ul>
+}

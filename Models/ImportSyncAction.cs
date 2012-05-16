@@ -1,4 +1,5 @@
-﻿using System.Xml.Linq;
+﻿using System.Linq;
+using System.Xml.Linq;
 using Orchard.Recipes.Models;
 
 namespace Tad.ContentSync.Models
@@ -9,8 +10,9 @@ namespace Tad.ContentSync.Models
         public string TargetId { get; set; }
         public RecipeStep Step { get; set; }
 
-        public static ImportSyncAction Parse(XElement sync) {
-            var step = ((XElement) sync.FirstNode);
+        public static ImportSyncAction Parse(XElement sync)
+        {
+            var step = sync.Elements().First();
             return new ImportSyncAction() {
                 Action = sync.Attribute("Action").Value,
                 TargetId = sync.Attribute("TargetId") != null ? sync.Attribute("TargetId").Value : null,

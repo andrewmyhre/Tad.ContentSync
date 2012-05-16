@@ -64,8 +64,8 @@ namespace Tad.ContentSync.Extensions {
         private static int Differences(XElement export1, XElement export2)
         {
             int differences = 0;
-            var attributesToCompare = new string[] { "Title", "Text" };
-            var elementsToCompare = new string[] { "BodyPart", "WidgetPart", "TitlePart" };
+            var attributesToCompare = new string[] { "Title", "Text", "Name" };
+            var elementsToCompare = new string[] { "BodyPart", "WidgetPart", "TitlePart", "LayerPart" };
 
             foreach (var element in export1.Elements())
             {
@@ -92,8 +92,8 @@ namespace Tad.ContentSync.Extensions {
         private static int Similarity(XElement export1, XElement export2)
         {
             int similarity = 0;
-            var attributesToCompare = new string[] {"Title", "Text"};
-            var elementsToCompare = new string[] {"BodyPart", "WidgetPart", "TitlePart"};
+            var attributesToCompare = new string[] {"Title", "Text", "Name"};
+            var elementsToCompare = new string[] {"BodyPart", "WidgetPart", "TitlePart", "LayerPart"};
 
             foreach (var element in export1.Elements())
             {
@@ -127,6 +127,68 @@ namespace Tad.ContentSync.Extensions {
             var export2 = ci2.ContentManager.Export(ci2);
 
             return Similarity(export1,export2) > 1;
+        }
+
+        public static string PartValue(this XElement element, string partName, string partAttribute)
+        {
+            if (element.Element(partName) != null)
+                if (element.Element(partName).Attribute(partAttribute) != null)
+                    return element.Element(partName).Attribute(partAttribute).Value;
+            return "";
+        }
+
+        public static string LayerName(this XElement element)
+        {
+            if (element.Element("CommonPart") != null && element.Element("CommonPart").Attribute("Container") != null)
+            {
+                string container = element.Element("CommonPart").Attribute("Container").Value;
+
+                var layerNameIndex = container.IndexOf("Layer.LayerName=");
+                if (layerNameIndex > -1)
+                {
+                    return container.Substring(layerNameIndex + 16);
+                }
+                
+            }
+            return element.Name.LocalName;
+        }
+
+        public static string ContentIdentifier(this XElement element)
+        {
+            return element.Attribute("Id").Value;
+        }
+
+        public static string DisplayLabel(this XElement element)
+        {
+            if (element.Element("TitlePart") != null && element.Element("TitlePart").Attribute("Title") != null)
+            {
+                return element.Element("TitlePart").Attribute("Title").Value;
+            }
+            if (element.Element("WidgetPart") != null && element.Element("WidgetPart").Attribute("Title") != null)
+            {
+                return element.Element("WidgetPart").Attribute("Title").Value;
+            }
+            if (element.Element("LayerPart") != null && element.Element("LayerPart").Attribute("Name") != null)
+            {
+                return element.Element("LayerPart").Attribute("Name").Value;
+            }
+
+            return "";
+        }
+
+        public static string PartType(this XElement element)
+        {
+            return element.Name.LocalName;
+        }
+
+        public static string Entitize(this XElement element)
+        {
+            foreach(var e in element.Elements())
+            {
+                e.SetValue("");
+            }
+
+            return element.ToString();
         }
     }
 }

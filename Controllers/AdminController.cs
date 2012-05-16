@@ -15,10 +15,15 @@ using Orchard.Core.Common.Models;
 using Orchard.Core.Contents.Settings;
 using Orchard.Data;
 using Orchard.DisplayManagement;
+using Orchard.ImportExport.Models;
+using Orchard.ImportExport.Services;
 using Orchard.Localization;
 using Orchard.Logging;
+using Orchard.Recipes.Models;
+using Orchard.Recipes.Services;
 using Orchard.UI.Admin;
 using Orchard.UI.Notify;
+using Tad.ContentSync.Comparers;
 using Tad.ContentSync.Extensions;
 using Tad.ContentSync.Models;
 using Tad.ContentSync.Services;
@@ -35,7 +40,13 @@ namespace Tad.ContentSync.Controllers
         private readonly ISynchronisationMapFactory _synchronisationMapFactory;
         private readonly IRepository<ContentSyncSettings> _contentSyncSettingsRepository;
         private readonly ISignals _signals;
+        private readonly ILoggerFactory _loggerFactory;
         private readonly ICacheManager _cacheManager;
+        private readonly IImportExportService _importExportService;
+        private readonly IRecipeParser _recipeParser;
+        private readonly IRemoteImportService _remoteImportService;
+        private readonly IEnumerable<IHardComparer> _hardComparers;
+        private readonly IEnumerable<ISoftComparer> _softComparers;
         public readonly ILogger Logger;
 
         public AdminController(IContentManager contentManager,
@@ -47,7 +58,12 @@ namespace Tad.ContentSync.Controllers
             IRepository<ContentSyncSettings> contentSyncSettingsRepository,
             ISignals signals,
             ILoggerFactory loggerFactory,
-            ICacheManager cacheManager) {
+            ICacheManager cacheManager,
+            IImportExportService importExportService,
+            IRecipeParser recipeParser,
+            IRemoteImportService remoteImportService,
+            IEnumerable<IHardComparer> hardComparers, 
+            IEnumerable<ISoftComparer> softComparers) {
             _contentManager = contentManager;
             _services = services;
             _shapeFactory = shapeFactory;
@@ -56,16 +72,19 @@ namespace Tad.ContentSync.Controllers
             _synchronisationMapFactory = synchronisationMapFactory;
             _contentSyncSettingsRepository = contentSyncSettingsRepository;
             _signals = signals;
+            _loggerFactory = loggerFactory;
             _cacheManager = cacheManager;
+            _importExportService = importExportService;
+            _recipeParser = recipeParser;
+            _remoteImportService = remoteImportService;
+            _hardComparers = hardComparers;
+            _softComparers = softComparers;
             Logger = loggerFactory.CreateLogger(typeof (AdminController));
             }
 
-        public ActionResult Index() {
 
-            return View(Session["contentsync.remoteurl"] as string);
-        }
 
-        public ActionResult Prepare(string remote, string filter)
+        public ActionResult Overview(string remote, string filter)
         {
             Logger.Debug("Diff " + filter);
 
@@ -87,12 +106,10 @@ namespace Tad.ContentSync.Controllers
 
 
             // make sure we can reach the remote
-            List<RemoteContentItem> remoteContent = null;
+            Recipe remoteRecipe = null;
             try
             {
-                remoteContent=_remoteContentFetchService.Fetch(new Uri(remote))
-                    .Where(rci => rci.ContentItem.Has<IdentityPart>())
-                    .ToList();
+                remoteRecipe = _remoteContentFetchService.FetchRecipe(new Uri(remote));
             }
             catch (Exception ex)
             {
@@ -102,50 +119,336 @@ namespace Tad.ContentSync.Controllers
             }
 
             // get localcontent
-            var localContent = _contentManager
-                .Query(VersionOptions.Published)
-                .Join<IdentityPartRecord>()
-                .List();
+            var localRecipe = LocalContentRecipe();
 
+            var matched = new RecipeComparer().Compare(localRecipe, remoteRecipe, new ContentTypeContentComparer(), new IdentifierContentComparer());
+            
+            var mismatched = new RecipeComparer().Compare(localRecipe, remoteRecipe, new ContentTypeContentComparer(),
+                                                          new TitleContentComparer())
+                                                          .Matching // all items of same type and matching title
+                                                          .Where(pair=>!new IdentifierContentComparer().IsMatch(pair.Left, pair.Right)); // where the identifier is different
 
-            _contentManager.Clear();
+            var groupedMismatches = mismatched
+                .GroupBy(pair => pair.Left)
+                .ToList();
+
+            var comparers = new IRecipeStepComparer[] {new TitleContentComparer(), new AutorouteContentComparer()};
+            var differences = matched.Matching.Where(pair => comparers.Any(c => !c.IsMatch(pair.Left, pair.Right)));
+            var same = matched.Matching.Where(pair => comparers.All(c => c.IsMatch(pair.Left, pair.Right)));
 
             var viewModel = new ContentSyncViewModel()
             {
                 RemoteServerUrl = remote,
-                Mappings =
-                    _synchronisationMapFactory.BuildSynchronisationMap(localContent, remoteContent).
-                    ToList(),
+                Pairs = matched.Matching.ToList(),
+                Same = same.ToList(),
+                Different = differences.ToList(),
+                SimilarSets = groupedMismatches,
                 GeneratedOn = DateTime.Now
             };
-
-            switch(filter)
-            {
-                case "same":
-                    viewModel.Mappings = viewModel.Mappings.Where(m => m.EqualityRank == 0);
-                    break;
-                case "different":
-                    viewModel.Mappings = viewModel.Mappings.Where(m => m.EqualityRank == 1);
-                    break;
-                case "mismatch":
-                    viewModel.Mappings = viewModel.Mappings.Where(m => m.EqualityRank == 2);
-                    break;
-                case "localonly":
-                    viewModel.Mappings = viewModel.Mappings.Where(m => !m.Balanced && m.Local != null && (m.Similar == null || m.Similar.Count() == 0));
-                    break;
-                case "remoteonly":
-                    viewModel.Mappings = viewModel.Mappings.Where(m => !m.Balanced && m.Remote != null);
-                    break;
-                default:
-                    viewModel.Mappings = viewModel.Mappings.OrderByDescending(m => m.EqualityRank);
-                    break;
-            }
 
             return View(viewModel);
         }
 
+        public ActionResult LocalOnly(string remote)
+        {
+            if (string.IsNullOrWhiteSpace(remote))
+            {
+                var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+                if (settings == null
+                    || string.IsNullOrWhiteSpace(settings.RemoteUrl))
+                {
+
+                    _services.Notifier.Add(NotifyType.Warning,
+                                           new LocalizedString(
+                                               "You need to set a remote Orchard instance url"));
+                    return RedirectToAction("Settings");
+
+                }
+                remote = settings.RemoteUrl;
+            }
+
+            Recipe remoteRecipe = null;
+            try
+            {
+                remoteRecipe = _remoteContentFetchService.FetchRecipe(new Uri(remote));
+            }
+            catch (Exception ex)
+            {
+                _services.Notifier.Add(NotifyType.Error,
+                                       new LocalizedString(ex.Message));
+                return RedirectToAction("Settings");
+            }
+
+            // get localcontent
+            var viewModel = BuildLocalOnlyViewModel(LocalContentRecipe(), remoteRecipe);
+
+            return View("LocalOnly", viewModel);
+        }
+
+        
+
+        public ActionResult RemoteOnly(string remote)
+        {
+            if (string.IsNullOrWhiteSpace(remote))
+            {
+                var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+                if (settings == null
+                    || string.IsNullOrWhiteSpace(settings.RemoteUrl))
+                {
+
+                    _services.Notifier.Add(NotifyType.Warning,
+                                           new LocalizedString(
+                                               "You need to set a remote Orchard instance url"));
+                    return RedirectToAction("Settings");
+
+                }
+                remote = settings.RemoteUrl;
+            }
+
+            Recipe remoteRecipe = null;
+            try
+            {
+                remoteRecipe = _remoteContentFetchService.FetchRecipe(new Uri(remote));
+            }
+            catch (Exception ex)
+            {
+                _services.Notifier.Add(NotifyType.Error,
+                                       new LocalizedString(ex.Message));
+                return RedirectToAction("Settings");
+            }
+
+            // get localcontent
+            var viewModel = BuildRemoteOnlyViewModel(LocalContentRecipe(), remoteRecipe);
+
+            return View("RemoteOnly", viewModel);
+        }
+
+        private IOrderedEnumerable<IGrouping<string, IGrouping<XElement, ContentPair>>> BuildDifferencesViewModel(Recipe localRecipe, Recipe remoteRecipe)
+        {
+            var matched = new RecipeComparer().Compare(localRecipe, remoteRecipe,
+                                                       (left, right) => _hardComparers.All(comparer => comparer.IsMatch(left, right))
+                                                       && _softComparers.Any(comparer => !comparer.IsMatch(left, right, true)));
+            var differences = matched.Matching
+                .OrderBy(pair => pair.Left.DisplayLabel())
+                .OrderBy(pair => pair.Left.PartType())
+                .GroupBy(pair => pair.Left)
+                .GroupBy(layer => layer.Key.LayerName())
+                .OrderBy(layer => layer.Key);
+            return differences;
+        }
+
+        private IOrderedEnumerable<IGrouping<string, IGrouping<XElement, ContentPair>>> BuildMismatchesViewModel(Recipe localRecipe, Recipe remoteRecipe)
+        {
+            var contentTypeComparer = new ContentTypeContentComparer();
+            var identityComparer = new IdentifierContentComparer();
+            var layerComparer = new LayerNameComparer();
+
+            var mismatched = new RecipeComparer()
+                .Compare(localRecipe, remoteRecipe,
+                (left, right) => 
+                    contentTypeComparer.IsMatch(left, right) /*&& layerComparer.IsMatch(left,right)*/
+                    && (!localRecipe.RecipeSteps.SingleOrDefault(step=>step.Name=="Data").Step.Elements()
+                                    .Any(element=>element.Attribute("Id").Value.Equals(right.Attribute("Id").Value, StringComparison.InvariantCulture))
+                        ||
+                        !remoteRecipe.RecipeSteps.SingleOrDefault(step=>step.Name=="Data").Step.Elements()
+                                    .Any(element=>element.Attribute("Id").Value.Equals(left.Attribute("Id").Value, StringComparison.InvariantCulture)))
+                    && (_softComparers.Where(comparer => comparer.IsMatch(left, right)).Count() > 1))
+                .Matching // all items of same type and title, body or layer name match
+                .Where(pair => !identityComparer.IsMatch(pair.Left, pair.Right));
+            // where the identifier is different
+
+            var groupedMismatches = mismatched
+                .GroupBy(pair => pair.Left)
+                .GroupBy(set => set.Key.LayerName())
+                .OrderBy(layer => layer.Key);
+            return groupedMismatches;
+        }
+
+        private IOrderedEnumerable<IGrouping<string, IGrouping<XElement, ContentPair>>> BuildLocalOnlyViewModel(Recipe localRecipe, Recipe remoteRecipe)
+        {
+            var layerNameComparer = new LayerNameComparer();
+
+            var comparison = new RecipeComparer()
+                .Compare(localRecipe, remoteRecipe,
+                            (left, right) => _hardComparers.All(comparer=>comparer.IsMatch(left, right)));
+
+            var localonly = comparison.Unmatched
+                .Where(pair => pair.Right == null)
+                .OrderBy(pair => pair.Left.DisplayLabel())
+                .OrderBy(pair => pair.Left.PartType())
+                .GroupBy(pair => pair.Left)
+                .GroupBy(layer => layer.Key.LayerName())
+                .OrderBy(layer => layer.Key);
+            return localonly;
+        }
+        private IOrderedEnumerable<IGrouping<string, IGrouping<XElement, ContentPair>>> BuildRemoteOnlyViewModel(Recipe localRecipe, Recipe remoteRecipe)
+        {
+            var contentTypeComparer = new ContentTypeContentComparer();
+            var identifierComparer = new IdentifierContentComparer();
+            var layerNameComparer = new LayerNameComparer();
+
+            var comparison = new RecipeComparer().Compare(localRecipe, remoteRecipe,
+                            (left, right) => contentTypeComparer.IsMatch(left, right)
+                                            && (identifierComparer.IsMatch(left, right) ||
+                                            layerNameComparer.IsMatch(left, right)));
+
+            var localonly = comparison.Unmatched
+                .Where(pair => pair.Left == null)
+                .OrderBy(pair => pair.Right.DisplayLabel())
+                .OrderBy(pair => pair.Right.PartType())
+                .GroupBy(pair => pair.Right)
+                .GroupBy(layer => layer.Key.LayerName())
+                .OrderBy(layer => layer.Key);
+            return localonly;
+        }
+
+        private Recipe LocalContentRecipe()
+        {
+            var recipeDocument = LocalRecipeDocument();
+            var recipe = _recipeParser.ParseRecipe(recipeDocument.ToString());
+            return recipe;
+        }
+
+        private XDocument LocalRecipeDocument()
+        {
+            var contentQuery = _contentManager.Query().ForVersion(VersionOptions.Published);
+
+            var exportedItems = contentQuery.List().Select(item => item.ContentManager.Export(item));
+
+            var recipeDocument = new XDocument(new XElement("Orchard", new XElement("Data", exportedItems)));
+            return recipeDocument;
+        }
+
+        public enum ComparisonType
+        {
+            Overview,
+            LocalOnly,
+            RemoteOnly,
+            Differences,
+            Mismatches
+        }
+
+        public ActionResult Comparison(ComparisonType type)
+        {
+            var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+            if (settings == null
+                || string.IsNullOrWhiteSpace(settings.RemoteUrl))
+            {
+
+                _services.Notifier.Add(NotifyType.Warning,
+                                        new LocalizedString(
+                                            "You need to set a remote Orchard instance url"));
+                return RedirectToAction("Settings");
+
+            }
+            string remote = settings.RemoteUrl;
+
+            Recipe remoteRecipe = null;
+            try
+            {
+                remoteRecipe = _remoteContentFetchService.FetchRecipe(new Uri(remote));
+            }
+            catch (Exception ex)
+            {
+                _services.Notifier.Add(NotifyType.Error,
+                                       new LocalizedString(ex.Message));
+                return RedirectToAction("Settings");
+            }
+
+            // get localcontent
+            IOrderedEnumerable<IGrouping<string, IGrouping<XElement, ContentPair>>> viewModel = null;
+            switch(type)
+            {
+                case ComparisonType.LocalOnly:
+                    viewModel = BuildLocalOnlyViewModel(LocalContentRecipe(), remoteRecipe);
+                    break;
+                    case ComparisonType.RemoteOnly:
+                    viewModel = BuildRemoteOnlyViewModel(LocalContentRecipe(), remoteRecipe);
+                    break;
+                    case ComparisonType.Differences:
+                        viewModel = BuildDifferencesViewModel(LocalContentRecipe(), remoteRecipe);
+                    break;
+                    case ComparisonType.Mismatches:
+                        viewModel = BuildMismatchesViewModel(LocalContentRecipe(), remoteRecipe);
+                    break;
+                    case ComparisonType.Overview:
+                    break;
+            }
+            
+
+            return View(Enum.GetName(typeof(ComparisonType), type), viewModel);
+        }
+
+        public ActionResult Different()
+        {
+            var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+            if (settings == null
+                || string.IsNullOrWhiteSpace(settings.RemoteUrl))
+            {
+
+                _services.Notifier.Add(NotifyType.Warning,
+                                        new LocalizedString(
+                                            "You need to set a remote Orchard instance url"));
+                return RedirectToAction("Settings");
+
+            }
+            string remote = settings.RemoteUrl;
+
+            Recipe remoteRecipe = null;
+            try
+            {
+                remoteRecipe = _remoteContentFetchService.FetchRecipe(new Uri(remote));
+            }
+            catch (Exception ex)
+            {
+                _services.Notifier.Add(NotifyType.Error,
+                                       new LocalizedString(ex.Message));
+                return RedirectToAction("Settings");
+            }
+
+            // get localcontent
+            var differences = BuildDifferencesViewModel(LocalContentRecipe(), remoteRecipe);
+
+            return View("Differences", differences);
+        }
+
+        
+
+        public ActionResult Mismatches()
+        {
+            var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+            if (settings == null || string.IsNullOrWhiteSpace(settings.RemoteUrl))
+            {
+                _services.Notifier.Add(NotifyType.Warning,
+                                        new LocalizedString(
+                                            "You need to set a remote Orchard instance url"));
+                return RedirectToAction("Settings");
+
+            }
+            string remote = settings.RemoteUrl;
+
+            Recipe remoteRecipe = null;
+            try
+            {
+                remoteRecipe = _remoteContentFetchService.FetchRecipe(new Uri(remote));
+            }
+            catch (Exception ex)
+            {
+                _services.Notifier.Add(NotifyType.Error,
+                                       new LocalizedString(ex.Message));
+                return RedirectToAction("Settings");
+            }
+
+            // get localcontent
+            var groupedMismatches = BuildMismatchesViewModel(LocalContentRecipe(), remoteRecipe);
+
+            return View(groupedMismatches);
+        }
+
+        
+
         [HttpPost]
-        public ActionResult Synchronise(string remote, string filter) {
+        public ActionResult Synchronise(string remote, string redirectAction, string direction, bool report=false) {
 
             if (string.IsNullOrWhiteSpace(remote))
             {
@@ -162,72 +465,62 @@ namespace Tad.ContentSync.Controllers
                 remote = settings.RemoteUrl;
             }
 
+            Recipe sourceRecipe = null;
+
             StringBuilder result = new StringBuilder();
             ImportContentSession importContentSession = new ImportContentSession(_contentManager);
+            ISynchronisationJobBuilder synchronisationJobBuilder = null;
+            ISynchronisationJobRunner syncJobRunner = null;
+            if (direction == "up")
+            {
+                sourceRecipe = LocalContentRecipe();
+                syncJobRunner = new PushSynchronisationJobRunner(_services, _signals);
+            }
+            else
+            {
+                try
+                {
+                    sourceRecipe = _remoteContentFetchService.FetchRecipe(new Uri(remote));
+                }
+                catch (Exception ex)
+                {
+                    _services.Notifier.Add(NotifyType.Error,
+                                           new LocalizedString(ex.Message));
+                    return RedirectToAction("Settings");
+                }
+                syncJobRunner = new PullSynchronisationJobRunner(_remoteImportService);
+            }
+            synchronisationJobBuilder = new SynchronisationJobBuilder(sourceRecipe, _loggerFactory);
 
-            XDocument synchronisation = new XDocument();
-            synchronisation.Add(new XElement("ContentSync"));
-            var actions = Request.Form.ToPairs().Where(p => p.Key.StartsWith("action:"));
+            var actions = Request.Form["sync"].Split(new[]{','}, StringSplitOptions.RemoveEmptyEntries );
             foreach(var action in actions) {
-                result.AppendLine(action.Key + ":" + action.Value);
-                var actionDetail = action.Value.Split(':');
-                var source = action.Key.Split(':'); // action:[identity]
-                if (actionDetail.Length < 2) {
-                    // todo: log
-                    continue;
-                }
+                result.AppendLine("sync:" + action);
+                string localIdentifier = "", remoteIdentifier = "";
+                if (action.IndexOf("::") > 0) { localIdentifier=action.Substring(0, action.IndexOf("::")); }
+                if (action.IndexOf("::") < action.Length-1) {remoteIdentifier=action.Substring(action.IndexOf("::") + 2);}
 
-                XElement sync = new XElement("Sync");
-                var contentItem = importContentSession.Get(source[1]);
-                if (contentItem==null) {
-                    // todo: log
-                    continue;
+                if (direction == "up")
+                {
+                    synchronisationJobBuilder.AddStep(localIdentifier, remoteIdentifier);
                 }
-
-                switch(actionDetail[0]) {
-                    case "replace":
-                        sync.Add(new XAttribute("Action", "Replace"));
-                        sync.Add(new XAttribute("TargetId", actionDetail[1]));
-                        sync.Add(_contentManager.Export(contentItem));
-                        break;
-                    case "push":
-                        sync.Add(new XAttribute("Action", "Import"));
-                        sync.Add(_contentManager.Export(contentItem));
-                        break;
+                else if (direction == "down")
+                {
+                    synchronisationJobBuilder.AddStep(remoteIdentifier, localIdentifier);
                 }
-
-                synchronisation.Element("ContentSync").Add(sync);
             }
 
-            Logger.Debug(synchronisation.ToString());
-
-            // send to other server
-            string remoteImportEndpoint = remote + "/Admin/ContentImportExport/Import";
-            HttpWebRequest post = HttpWebRequest.Create(remoteImportEndpoint) as HttpWebRequest;
-            post.Method = "POST";
-            using (var requestStream = post.GetRequestStream())
-            using (var requestWriter = new StreamWriter(requestStream, Encoding.UTF8)){
-                requestWriter.Write(synchronisation.ToString());
-                requestWriter.Flush();
+            if (report)
+            {
+                return new ContentResult()
+                           {
+                               Content =
+                                   new XElement("ContentSync", synchronisationJobBuilder.SynchronisationSteps).ToString(),
+                               ContentType = "text/xml"
+                           };
             }
+            syncJobRunner.Process(synchronisationJobBuilder);
 
-            try {
-                using (var response = post.GetResponse() as HttpWebResponse) {
-                    if (response.StatusCode == HttpStatusCode.Accepted) {
-                        _services.Notifier.Add(NotifyType.Information, 
-                            new LocalizedString("The content was published successfully"));
-                        _signals.Trigger(SynchronisationMapFactory.MapInvalidationTrigger);
-                    } else {
-                        _services.Notifier.Add(NotifyType.Error,
-                            new LocalizedString("A problem occurred: " + response.StatusDescription));
-                    }
-                }
-            } catch (Exception ex) {
-                _services.Notifier.Add(NotifyType.Error,
-                    new LocalizedString("A problem occurred: " + ex.Message));
-            }
-
-            return RedirectToAction("Prepare", new { remote = remote, filter = filter });
+            return RedirectToAction(redirectAction??"Overview");
         }
 
         public ActionResult Settings()
@@ -259,11 +552,172 @@ namespace Tad.ContentSync.Controllers
             return RedirectToAction("Settings");
         }
 
+        [HttpPost]
+        public ActionResult CorrectMismatches(string direction)
+        {
+            var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+            if (settings == null
+                || string.IsNullOrWhiteSpace(settings.RemoteUrl))
+            {
+
+                _services.Notifier.Add(NotifyType.Warning,
+                                        new LocalizedString("You need to set a remote Orchard instance url"));
+                return RedirectToAction("Settings");
+
+            }
+            string remote = settings.RemoteUrl;
+
+            StringBuilder result = new StringBuilder();
+            ImportContentSession importContentSession = new ImportContentSession(_contentManager);
+
+            XDocument synchronisation = new XDocument();
+            synchronisation.Add(new XElement("ContentSync"));
+            var actions = Request.Form.ToPairs().Where(p => p.Key == "sync");
+            foreach (var action in actions)
+            {
+                //result.AppendLine(action.Key + ":" + action.Value);
+                var localIdentifier = action.Value.Substring(0, action.Value.IndexOf("::"));
+                var remoteIdentifier = action.Value.Substring(action.Value.IndexOf("::")+2);
+
+                XElement sync = new XElement("Sync");
+                var contentItem = importContentSession.Get(localIdentifier);
+                if (contentItem == null)
+                {
+                    // todo: log
+                    continue;
+                }
+
+                sync.Add(new XAttribute("Action", "Replace"));
+                sync.Add(new XAttribute("TargetId", remoteIdentifier));
+                sync.Add(_contentManager.Export(contentItem));
+
+                synchronisation.Element("ContentSync").Add(sync);
+            }
+
+            Logger.Debug(synchronisation.ToString());
+
+            // send to other server
+            string remoteImportEndpoint = remote + "/Admin/ContentImportExport/Import";
+            HttpWebRequest post = HttpWebRequest.Create(remoteImportEndpoint) as HttpWebRequest;
+            post.Method = "POST";
+            using (var requestStream = post.GetRequestStream())
+            using (var requestWriter = new StreamWriter(requestStream, Encoding.UTF8))
+            {
+                requestWriter.Write(synchronisation.ToString());
+                requestWriter.Flush();
+            }
+
+            try
+            {
+                using (var response = post.GetResponse() as HttpWebResponse)
+                {
+                    if (response.StatusCode == HttpStatusCode.Accepted)
+                    {
+                        _services.Notifier.Add(NotifyType.Information,
+                            new LocalizedString("The content was published successfully"));
+                        _signals.Trigger(SynchronisationMapFactory.MapInvalidationTrigger);
+                    }
+                    else
+                    {
+                        _services.Notifier.Add(NotifyType.Error,
+                            new LocalizedString("A problem occurred: " + response.StatusDescription));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _services.Notifier.Add(NotifyType.Error,
+                    new LocalizedString("A problem occurred: " + ex.Message));
+            }
+
+            return RedirectToAction("Mismatches");
+        }
+
+        [HttpPost]
+        public ActionResult Export(string[] sync, string direction)
+        {
+            if (sync == null)
+            {
+                return RedirectToAction("Different");
+            }
+
+            var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+            if (settings == null
+                || string.IsNullOrWhiteSpace(settings.RemoteUrl))
+            {
+
+                _services.Notifier.Add(NotifyType.Warning,
+                                        new LocalizedString("You need to set a remote Orchard instance url"));
+                return RedirectToAction("Settings");
+
+            }
+            string remote = settings.RemoteUrl;
+
+            StringBuilder result = new StringBuilder();
+            ImportContentSession importContentSession = new ImportContentSession(_contentManager);
+
+            XDocument synchronisation = new XDocument();
+            synchronisation.Add(new XElement("ContentSync"));
+            foreach (var action in sync)
+            {
+                XElement syncXml = new XElement("Sync");
+                var contentItem = importContentSession.Get(action);
+                if (contentItem == null)
+                {
+                    // todo: log
+                    continue;
+                }
+
+                syncXml.Add(new XAttribute("Action", "Import"));
+                syncXml.Add(_contentManager.Export(contentItem));
+
+                synchronisation.Element("ContentSync").Add(syncXml);
+            }
+
+            Logger.Debug(synchronisation.ToString());
+
+            // send to other server
+            string remoteImportEndpoint = remote + "/Admin/ContentImportExport/Import";
+            HttpWebRequest post = HttpWebRequest.Create(remoteImportEndpoint) as HttpWebRequest;
+            post.Method = "POST";
+            using (var requestStream = post.GetRequestStream())
+            using (var requestWriter = new StreamWriter(requestStream, Encoding.UTF8))
+            {
+                requestWriter.Write(synchronisation.ToString());
+                requestWriter.Flush();
+            }
+
+            try
+            {
+                using (var response = post.GetResponse() as HttpWebResponse)
+                {
+                    if (response.StatusCode == HttpStatusCode.Accepted)
+                    {
+                        _services.Notifier.Add(NotifyType.Information,
+                            new LocalizedString("The content was published successfully"));
+                        _signals.Trigger(SynchronisationMapFactory.MapInvalidationTrigger);
+                    }
+                    else
+                    {
+                        _services.Notifier.Add(NotifyType.Error,
+                            new LocalizedString("A problem occurred: " + response.StatusDescription));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _services.Notifier.Add(NotifyType.Error,
+                    new LocalizedString("A problem occurred: " + ex.Message));
+            }
+
+            return RedirectToAction("Different");
+        }
+
         public ActionResult Refresh(string filter)
         {
             _signals.Trigger(SynchronisationMapFactory.MapInvalidationTrigger);
 
-            return RedirectToAction("Prepare", new {filter=filter});
+            return RedirectToAction("Overview", new {filter=filter});
         }
 
         private IEnumerable<ContentTypeDefinition> GetCreatableTypes(bool andContainable)

@@ -3,42 +3,43 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Xml.Linq;
 using Orchard;
 using Orchard.ContentManagement;
 using Orchard.ContentManagement.Handlers;
 using Orchard.Core.Common.Models;
+using Orchard.Logging;
 using Orchard.Recipes.Models;
 using Orchard.Recipes.Services;
 
 namespace Tad.ContentSync.Services {
-    public class RemoteContentItem
-    {
-        public ContentItem ContentItem { get; set; }
-        public XElement Xml { get; set; }
-    }
-
     public class RemoteContentFetchService : IRemoteContentFetchService {
         private readonly IRecipeParser _recipeParser;
         private readonly IOrchardServices _orchardServices;
         private readonly Lazy<IEnumerable<IContentHandler>> _handlers;
+        private ILogger Logger { get; set; }
 
         public RemoteContentFetchService(
             IRecipeParser recipeParser,
             IOrchardServices orchardServices,
-            Lazy<IEnumerable<IContentHandler>> handlers)
+            Lazy<IEnumerable<IContentHandler>> handlers,
+            ILoggerFactory loggerFactory)
         {
             _recipeParser = recipeParser;
             _orchardServices = orchardServices;
             _handlers = handlers;
+            Logger = loggerFactory.CreateLogger(typeof (RemoteContentFetchService));
+        }
+
+        public Recipe FetchRecipe(Uri remoteInstanceRoot)
+        {
+            var remoteExportEndpoint = new Uri(remoteInstanceRoot + "/Admin/ContentImportExport/Export");
+            string remoteXml = FetchRemoteExportXml(remoteExportEndpoint);
+            return _recipeParser.ParseRecipe(remoteXml);
         }
 
         public IEnumerable<RemoteContentItem> Fetch(Uri remoteInstanceRoot) {
-            var remoteExportEndpoint = new Uri(remoteInstanceRoot + "/Admin/ContentImportExport/Export");
-            string remoteXml = FetchRemoteExportXml(remoteExportEndpoint);
             List<RemoteContentItem> remoteContentItems = new List<RemoteContentItem>();
-
-            var recipe = _recipeParser.ParseRecipe(remoteXml);
+            var recipe = FetchRecipe(remoteInstanceRoot);
             var importContentSession = new ImportContentSession(_orchardServices.ContentManager);
             foreach (var step in recipe.RecipeSteps)
             {
