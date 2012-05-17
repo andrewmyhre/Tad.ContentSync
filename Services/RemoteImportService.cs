@@ -32,7 +32,7 @@ namespace Tad.ContentSync.Services {
                 foreach (var sync in actions.Where(a => a.Action == "Replace"))
                 {
                     Logger.Debug("{0}, {1}", sync.Action, sync.TargetId);
-                    if (!LocalIdentifierExists(sync.TargetId, importContentSession))
+                    if (!LocalIdentifierExists(sync, importContentSession))
                     {
                         Replace(sync, importContentSession);
                     } else
@@ -65,9 +65,13 @@ namespace Tad.ContentSync.Services {
             }
         }
 
-        private bool LocalIdentifierExists(string identifier, ImportContentSession importContentSession)
+        private bool LocalIdentifierExists(ImportSyncAction identifier, ImportContentSession importContentSession)
         {
-            var contentItem = importContentSession.Get(identifier);
+            var newIdentifier = identifier.Step.Step.Attribute("Id");
+            if (newIdentifier == null)
+                return false;
+
+            var contentItem = importContentSession.Get(newIdentifier.Value);
             if (contentItem == null)
                 return false;
 
