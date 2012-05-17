@@ -17,8 +17,9 @@ namespace Tad.ContentSync.Services
         public string RemoteInstanceUrl { get; set; }
         public bool Rollback { get; set; }
 
-        public PushSynchronisationJobRunner(IOrchardServices services, ISignals signals)
+        public PushSynchronisationJobRunner(string remoteInstanceUrl, IOrchardServices services, ISignals signals)
         {
+            RemoteInstanceUrl = remoteInstanceUrl;
             _services = services;
             _signals = signals;
         }

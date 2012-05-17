@@ -1,5 +1,5 @@
 ﻿@using Tad.ContentSync.Extensions
-@model IEnumerable<IGrouping<string, IGrouping<System.Xml.Linq.XElement, Tad.ContentSync.Comparers.ContentPair>>>
+@model Tad.ContentSync.Models.ContentComparisonViewModel
 
 @{
     Style.Require("jQueryUI_Orchard").AtHead();
@@ -7,7 +7,7 @@
     Script.Require("SyncDashboard").AtHead();
     Script.Require("PrettyDiff").AtFoot();
 
-    Layout.Title("Synchronise content");
+    Layout.Title("Synchronise content with " + Model.RemoteServerUrl);
 }
 
 <style>
@@ -75,7 +75,7 @@
     <button id="button-synchronise-down" type="submit" style="float:right">Synchronise DOWN</button>
 
     <ul class="tree">
-        @foreach (var layer in Model)
+        @foreach (var layer in Model.Comparison)
         {
             <li>
                 <h2>@layer.Key</h2>

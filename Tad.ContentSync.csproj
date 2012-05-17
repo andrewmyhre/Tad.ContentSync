@@ -131,7 +131,7 @@
     <Compile Include="Models\ContentItemSyncInfo.cs" />
     <Compile Include="Models\ContentSyncMap.cs" />
     <Compile Include="Models\ContentSyncSettings.cs" />
-    <Compile Include="Models\ContentSyncViewModel.cs" />
+    <Compile Include="Models\OverviewViewModel.cs" />
     <Compile Include="Models\ImportSyncAction.cs" />
     <Compile Include="ResourcesManifest.cs" />
     <Compile Include="Routes.cs" />

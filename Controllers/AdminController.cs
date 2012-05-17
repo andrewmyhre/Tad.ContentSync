@@ -121,28 +121,13 @@ namespace Tad.ContentSync.Controllers
             // get localcontent
             var localRecipe = LocalContentRecipe();
 
-            var matched = new RecipeComparer().Compare(localRecipe, remoteRecipe, new ContentTypeContentComparer(), new IdentifierContentComparer());
-            
-            var mismatched = new RecipeComparer().Compare(localRecipe, remoteRecipe, new ContentTypeContentComparer(),
-                                                          new TitleContentComparer())
-                                                          .Matching // all items of same type and matching title
-                                                          .Where(pair=>!new IdentifierContentComparer().IsMatch(pair.Left, pair.Right)); // where the identifier is different
-
-            var groupedMismatches = mismatched
-                .GroupBy(pair => pair.Left)
-                .ToList();
-
-            var comparers = new IRecipeStepComparer[] {new TitleContentComparer(), new AutorouteContentComparer()};
-            var differences = matched.Matching.Where(pair => comparers.Any(c => !c.IsMatch(pair.Left, pair.Right)));
-            var same = matched.Matching.Where(pair => comparers.All(c => c.IsMatch(pair.Left, pair.Right)));
-
-            var viewModel = new ContentSyncViewModel()
+            var viewModel = new OverviewViewModel()
             {
                 RemoteServerUrl = remote,
-                Pairs = matched.Matching.ToList(),
-                Same = same.ToList(),
-                Different = differences.ToList(),
-                SimilarSets = groupedMismatches,
+                LocalOnly = BuildLocalOnlyViewModel(localRecipe, remoteRecipe),
+                Different = BuildDifferencesViewModel(localRecipe, remoteRecipe),
+                Mismatches = BuildMismatchesViewModel(localRecipe, remoteRecipe),
+                RemoteOnly = BuildRemoteOnlyViewModel(localRecipe, remoteRecipe),
                 GeneratedOn = DateTime.Now
             };
 
@@ -356,25 +341,25 @@ namespace Tad.ContentSync.Controllers
             }
 
             // get localcontent
-            IOrderedEnumerable<IGrouping<string, IGrouping<XElement, ContentPair>>> viewModel = null;
+            ContentComparisonViewModel viewModel = new ContentComparisonViewModel();
+            IOrderedEnumerable<IGrouping<string, IGrouping<XElement, ContentPair>>> comparison = null;
             switch(type)
             {
                 case ComparisonType.LocalOnly:
-                    viewModel = BuildLocalOnlyViewModel(LocalContentRecipe(), remoteRecipe);
+                    comparison = BuildLocalOnlyViewModel(LocalContentRecipe(), remoteRecipe);
                     break;
                     case ComparisonType.RemoteOnly:
-                    viewModel = BuildRemoteOnlyViewModel(LocalContentRecipe(), remoteRecipe);
+                    comparison = BuildRemoteOnlyViewModel(LocalContentRecipe(), remoteRecipe);
                     break;
                     case ComparisonType.Differences:
-                        viewModel = BuildDifferencesViewModel(LocalContentRecipe(), remoteRecipe);
+                        comparison = BuildDifferencesViewModel(LocalContentRecipe(), remoteRecipe);
                     break;
                     case ComparisonType.Mismatches:
-                        viewModel = BuildMismatchesViewModel(LocalContentRecipe(), remoteRecipe);
-                    break;
-                    case ComparisonType.Overview:
+                        comparison = BuildMismatchesViewModel(LocalContentRecipe(), remoteRecipe);
                     break;
             }
-            
+            viewModel.Comparison = comparison;
+            viewModel.RemoteServerUrl = remote;
 
             return View(Enum.GetName(typeof(ComparisonType), type), viewModel);
         }
@@ -448,33 +433,29 @@ namespace Tad.ContentSync.Controllers
         
 
         [HttpPost]
-        public ActionResult Synchronise(string remote, string redirectAction, string direction, bool report=false) {
+        public ActionResult Synchronise(string redirectAction, string direction, bool report=false) {
 
-            if (string.IsNullOrWhiteSpace(remote))
+            var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
+            if (settings == null
+                || string.IsNullOrWhiteSpace(settings.RemoteUrl))
             {
-                var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
-                if (settings == null
-                    || string.IsNullOrWhiteSpace(settings.RemoteUrl))
-                {
 
-                    _services.Notifier.Add(NotifyType.Warning,
-                                           new LocalizedString("You need to set a remote Orchard instance url"));
-                    return RedirectToAction("Settings");
+                _services.Notifier.Add(NotifyType.Warning,
+                                        new LocalizedString("You need to set a remote Orchard instance url"));
+                return RedirectToAction("Settings");
 
-                }
-                remote = settings.RemoteUrl;
             }
+            string remote = settings.RemoteUrl;
 
             Recipe sourceRecipe = null;
 
             StringBuilder result = new StringBuilder();
-            ImportContentSession importContentSession = new ImportContentSession(_contentManager);
             ISynchronisationJobBuilder synchronisationJobBuilder = null;
             ISynchronisationJobRunner syncJobRunner = null;
             if (direction == "up")
             {
                 sourceRecipe = LocalContentRecipe();
-                syncJobRunner = new PushSynchronisationJobRunner(_services, _signals);
+                syncJobRunner = new PushSynchronisationJobRunner(remote, _services, _signals);
             }
             else
             {
