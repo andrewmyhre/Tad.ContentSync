@@ -9,7 +9,9 @@
 
     Layout.Title("Synchronise content with " + Model.RemoteServerUrl);
 }
-
+<script type="text/javascript">
+    setRemoteUrl('@Model.RemoteServerUrl')
+</script>
 <style>
     ul.tree li { padding-left: 2em;}
     

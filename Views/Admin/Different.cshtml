@@ -1,5 +1,5 @@
 ﻿@using Tad.ContentSync.Extensions
-@model Tad.ContentSync.Models.ContentComparisonViewModel
+@model IEnumerable<IGrouping<string,Tad.ContentSync.Comparers.ContentPair>>
 
 @{
     Style.Require("jQueryUI_Orchard").AtHead();
@@ -7,11 +7,9 @@
     Script.Require("SyncDashboard").AtHead();
     Script.Require("PrettyDiff").AtFoot();
 
-    Layout.Title("Synchronise content with " + Model.RemoteServerUrl);
+    Layout.Title("Synchronise content");
 }
-<script type="text/javascript">
-    setRemoteUrl('@Model.RemoteServerUrl')
-</script>
+
 <style>
     ul.tree li { padding-left: 2em;}
     
@@ -72,24 +70,25 @@
 @using (Html.BeginForm("Synchronise", "Admin", FormMethod.Post))
 {
     @Html.AntiForgeryTokenOrchard()
-    <input type="hidden" name="redirectAction" value="@Request.RequestContext.RouteData.Values["type"]"/>
-    <input type="hidden" name="direction" value="up"></input>
+    <input type="hidden" name="redirectAction" value="@Request.RequestContext.RouteData.Values["action"]"/>
+    <input type="hidden" name="direction"></input>
     <button id="button-synchronise-up" type="submit" style="float:right">Synchronise UP</button>
+    <button id="button-synchronise-down" type="submit" style="float:right">Synchronise DOWN</button>
 
     <ul class="tree">
-        @foreach (var layer in Model.Comparison)
+        @foreach (var layer in Model)
         {
             <li>
                 <h2>@layer.Key</h2>
                 <ul>
         
-                    @foreach (var set in layer)
+                    @foreach (var pair in layer)
                     {
-                        var pair = set.First();
                         <li id="@pair.Left.PartValue("IdentityPart", "Identifier")">
-                            <input type="checkbox" name="sync" id="@pair.Left.PartValue("IdentityPart", "Identifier")::" value="@pair.Left.ContentIdentifier()::"/>
-                            <label class="forcheckbox" for="@pair.Left.PartValue("IdentityPart", "Identifier")::">@pair.Left.DisplayLabel()</label>
-                            <a href="#" class="link-show-diff">View</a>
+                            <input type="checkbox" name="sync" id="@pair.Left.PartValue("IdentityPart", "Identifier")::@pair.Right.PartValue("IdentityPart", "Identifier")" value="@pair.Left.ContentIdentifier()"/>
+                            <label class="forcheckbox" for="@pair.Left.PartValue("IdentityPart", "Identifier")::@pair.Right.PartValue("IdentityPart", "Identifier")">@pair.Left.DisplayLabel()</label>
+                            <a href="#" class="link-show-diff">Diff</a>
+                            <div class="source right" id="@pair.Right.PartValue("IdentityPart", "Identifier")">@Html.Raw(pair.Right.Entitize())</div>
                             <div class="source left">@Html.Raw(pair.Left.Entitize())</div>
                         </li>
                     }

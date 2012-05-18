@@ -8,12 +8,12 @@ using Orchard.Logging;
 using Tad.ContentSync.Models;
 
 namespace Tad.ContentSync.Services {
-    public class RemoteImportService : IRemoteImportService {
+    public class RemoteImportSerice : IRemoteImportService {
         private readonly ITransactionManager _transactionManager;
         private readonly IContentManager _contentManager;
         public ILogger Logger { get; set; }
 
-        public RemoteImportService(
+        public RemoteImportSerice(
             ITransactionManager transactionManager,
             IContentManager contentManager,
             ILoggerFactory loggerFactory) {
@@ -24,6 +24,7 @@ namespace Tad.ContentSync.Services {
 
         public void Import(IEnumerable<ImportSyncAction> actions, bool rollback) {
             _transactionManager.Demand();
+            Logger.Debug("Beginning import");
 
             try
             {
@@ -32,7 +33,7 @@ namespace Tad.ContentSync.Services {
                 foreach (var sync in actions.Where(a => a.Action == "Replace"))
                 {
                     Logger.Debug("{0}, {1}", sync.Action, sync.TargetId);
-                    if (!LocalIdentifierExists(sync, importContentSession))
+                    if (!LocalIdentifierExists(sync.TargetId, importContentSession))
                     {
                         Replace(sync, importContentSession);
                     } else
@@ -46,7 +47,7 @@ namespace Tad.ContentSync.Services {
                 foreach (var action in actions)
                 {
                     ImportItem(action, importContentSession);
-                    Logger.Debug("Imported a " + action.Step.Name);
+                    Logger.Debug("Imported " + action.Step.Name);
                 }
 
                 if (rollback)
@@ -65,13 +66,9 @@ namespace Tad.ContentSync.Services {
             }
         }
 
-        private bool LocalIdentifierExists(ImportSyncAction identifier, ImportContentSession importContentSession)
+        private bool LocalIdentifierExists(string identifier, ImportContentSession importContentSession)
         {
-            var newIdentifier = identifier.Step.Step.Attribute("Id");
-            if (newIdentifier == null)
-                return false;
-
-            var contentItem = importContentSession.Get(newIdentifier.Value);
+            var contentItem = importContentSession.Get(identifier);
             if (contentItem == null)
                 return false;
 
@@ -79,6 +76,7 @@ namespace Tad.ContentSync.Services {
         }
 
         private void ImportItem(ImportSyncAction action, ImportContentSession session) {
+            Logger.Debug("Importing {0}", action.Step.Step.Element("Id"));
             _contentManager.Import(action.Step.Step, session);
         }
 

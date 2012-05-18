@@ -1,5 +1,5 @@
-﻿$(document).ready(function () {
-    var _remoteUrl;
+﻿var _remoteUrl;
+$(document).ready(function () {
     $('#diff-view').dialog({ autoOpen: false, modal: true, width: '75%', height: 700 });
 
     $('#diff-view .show-preview').click(showPreview);
@@ -37,13 +37,13 @@
         } else if (!leftAvailable && rightAvailable) {
             diffRight = right.html();
             diffLeft = diffRight;
-            $('#diff-view .preview-right').attr("src", "http://192.168.111.93/en/Admin/ContentSync/Preview/" + right.attr('id'));
+            $('#diff-view .preview-right').attr("src", _remoteUrl+"/Admin/ContentSync/Preview/" + right.attr('id'));
         }
         else if (leftAvailable && rightAvailable) {
             diffLeft = left.html();
             diffRight = right.html();
             $('#diff-view .preview-left').attr("src", "/en/Admin/ContentSync/Preview/" + left.parent().attr('id'));
-            $('#diff-view .preview-right').attr("src", "http://192.168.111.93/en/Admin/ContentSync/Preview/" + right.attr('id'));
+            $('#diff-view .preview-right').attr("src", _remoteUrl+"/Admin/ContentSync/Preview/" + right.attr('id'));
         }
         var diff = prettydiff({ source: diffLeft, diff: diffRight, mode: 'diff', lang: 'auto', diffview: 'inline'/*'sidebyside*/, sourcelabel: 'Local Version', difflabel: 'Remote Version' });
         $('#diff-view .diff-view').html(diff[1]);
@@ -84,9 +84,7 @@
         }
     }
 
-    function init(remoteUrl) {
-        _remoteUrl = remoteUrl;
-    }
+
 
     function showPreview() {
         $('a.show-preview').parent().addClass('selected');
@@ -116,3 +114,6 @@
 });
 
 
+function setRemoteUrl(remoteUrl) {
+    _remoteUrl = remoteUrl;
+}
