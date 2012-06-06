@@ -504,6 +504,7 @@ namespace Tad.ContentSync.Controllers
             return RedirectToAction(redirectAction??"Overview");
         }
 
+        [HttpGet]
         public ActionResult Settings()
         {
             var settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
@@ -512,6 +513,7 @@ namespace Tad.ContentSync.Controllers
         }
 
         [HttpPost]
+        [ActionName("Settings")]
         public ActionResult UpdateSettings(string remoteUrl)
         {
             ContentSyncSettings settings = _contentSyncSettingsRepository.Table.SingleOrDefault();
